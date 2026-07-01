@@ -110,6 +110,14 @@ Leitura:
 
 Isso é consistente com o resultado nulo da fase piloto (desenho pré-Osler, ver abaixo): o mecanismo documentado por Osler para pares de mercados desenvolvidos **não se replica** de forma detectável para o Real neste período.
 
+### Corroboração visual — event-study do toque
+
+Além do teste confirmatório, um *event-study* alinha cada toque de nível em `k = 0` e acompanha o **retorno acumulado assinado** (em bps) de −10 a +30 minutos. O sinal segue a direção de aproximação (`+1` se veio de baixo, `−1` se veio de cima), de modo que no eixo y **positivo = continuação** e **negativo = reversão/bounce**. Se H1a fosse verdadeira, a curva dos níveis redondos ficaria *abaixo* da curva de controle no trecho pós-toque.
+
+![Event-study do toque em nível](figures/event_study.png)
+
+Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma direta: pós-toque, os retornos assinados ficam próximos de zero e as curvas dos níveis redondos **coincidem com a banda de controle** de Osler — nenhum sinal de reversão sistemática. O gráfico é leitura visual do resultado, não substitui o teste (a viz usa `N = 25` conjuntos de controle *pooled*, suficiente para uma média suave; o teste confirmatório usa `N = 5.000`). Reproduzível com `python -m src.event_study`; a tabela `média ± SE` por passo e grupo fica em [`results/event_study_paths.csv`](results/event_study_paths.csv) (reaproveitável no dashboard).
+
 ## Estrutura do repositório
 
 ```
@@ -123,7 +131,9 @@ src/
   events.py          filtro de sessão + toque + classificação + scan mensal de controle
   stats.py           teste de sinal binomial mensal (literal) + Monte Carlo (complementar)
   run_analysis.py    driver ponta a ponta (primário + robustez)
+  event_study.py     event-study assinado do toque (redondo vs. controle) → figura + CSV
 results/             tabelas de saída do teste confirmatório (versionadas)
+figures/             figuras de research (event-study)
 notebooks/           exploração e validação ad-hoc
 ```
 
