@@ -44,6 +44,11 @@ GRID_COLOR = {
     "0.05": "#d62728", "0.01_placebo": "#7f7f7f",
 }
 
+
+def esc(s: str) -> str:
+    """Escapa '$' para o Streamlit não interpretar como LaTeX no markdown."""
+    return s.replace("$", "\\$")
+
 st.set_page_config(page_title="O dólar respeita números redondos?",
                    page_icon="🎯", layout="wide")
 
@@ -110,7 +115,7 @@ def tela_pergunta():
     st.title("🎯 O dólar respeita números redondos?")
     st.markdown(
         "> Existe uma crença antiga no mercado: o dólar **“bate e volta”** em "
-        "números redondos como **R$ 5,00** ou **R$ 5,50**, como se esses valores "
+        "números redondos como **R\\$ 5,00** ou **R\\$ 5,50**, como se esses valores "
         "fossem paredes invisíveis. Operadores desenham linhas neles o dia todo."
     )
     st.markdown(
@@ -149,8 +154,8 @@ def tela_explorador():
         grid_name = st.radio(
             "Quão redondo?", list(GRID_LABEL.keys())[:4],
             format_func=lambda g: GRID_LABEL[g], horizontal=True,
-            help="Números mais redondos (R$ 1,00) são mais raros; menos redondos "
-                 "(R$ 0,05) aparecem mais vezes.",
+            help="Números mais redondos (R\\$ 1,00) são mais raros; menos redondos "
+                 "(R\\$ 0,05) aparecem mais vezes.",
         )
     with c2:
         month = st.select_slider("Mês", options=months, value=months[len(months) // 2])
@@ -192,13 +197,13 @@ def tela_explorador():
     n_total = len(tw)
     if n_total:
         st.caption(
-            f"Em **{month}**, na grade **{GRID_LABEL[grid_name]}**: o dólar encostou "
+            f"Em **{month}**, na grade **{esc(GRID_LABEL[grid_name])}**: o dólar encostou "
             f"**{n_total}** vezes e voltou em **{n_voltou}** delas "
             f"(**{n_voltou / n_total * 100:.0f}%**). Guarde esse número — na próxima "
             "tela a gente compara com o acaso.")
     else:
         st.caption("Nenhum toque nessa grade neste mês — tente uma grade menos "
-                   "redonda (R$ 0,10 / R$ 0,05) ou outro mês.")
+                   "redonda (R\\$ 0,10 / R\\$ 0,05) ou outro mês.")
 
 
 def tela_teste():
@@ -303,7 +308,7 @@ def tela_veredito():
     st.title("🏁 O veredito")
     st.success(
         "**Não.** No período analisado, o dólar **não trata números redondos de "
-        "forma especial.** Ele bate e volta em R$ 5,50 com a mesma frequência com "
+        "forma especial.** Ele bate e volta em R\\$ 5,50 com a mesma frequência com "
         "que faz isso em qualquer número sorteado no acaso.")
     st.markdown(
         "O efeito que Carol Osler documentou para moedas de países ricos "
