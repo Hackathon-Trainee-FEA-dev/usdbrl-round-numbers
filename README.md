@@ -143,15 +143,22 @@ src/
   run_analysis.py    driver ponta a ponta (primário + robustez)
   event_study.py     event-study assinado do toque (redondo vs. controle) → figura + CSV
   sanity_ptax.py     sanity check da fonte: MT5 vs. PTAX oficial do BCB (match por instante)
+dashboard/
+  app.py             dashboard interativo (Streamlit) — camada de comunicação leiga
 results/             tabelas de saída do teste confirmatório (versionadas)
-figures/             figuras de research (event-study)
+figures/             figuras de research (event-study, sanity check)
 notebooks/           exploração e validação ad-hoc
 ```
 
 ## Entregáveis
 
-1. Paper/análise com o desenho pré-registrado acima.
-2. Dashboard interativo (Streamlit), reaproveitando os mesmos módulos de `src/`.
+1. **Paper/análise** com o desenho pré-registrado acima (rigor estatístico: testes, p-valores, robustez).
+2. **Dashboard interativo (Streamlit)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Reaproveita os mesmos módulos de `src/` e os CSVs de resultado. Cinco telas: a crença popular → explorar o preço e os toques → o teste explicado como "redondo vs. número sorteado" → o que o dólar faz depois de encostar → o veredito (com as ressalvas). O conteúdo técnico-estatístico fica de propósito no paper, não no dashboard.
+
+```bash
+pip install -r requirements.txt
+streamlit run dashboard/app.py    # a partir da raiz do repositório
+```
 
 ## Fase piloto (histórico, não confirmatório)
 
