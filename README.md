@@ -74,12 +74,22 @@ Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada; reporta-se o p p
 - **Fonte primária:** MetaTrader5, símbolo `USDBRL`, conta demo **FBS-Demo**, M1 real (não agregado), ~336 dias corridos (2025-07-30 até hoje), 224 dias distintos de pregão.
 - **Robustez out-of-sample:** conta demo **Tickmill-Demo** (corretora diferente, mesmo desenho).
 - **Sessão:** símbolo *onshore* que só cota o pregão brasileiro; a análise usa a janela consistente **[15:30, 23:00)** do timestamp do servidor (98.694 barras). Ver "Sessão de negociação" acima.
-- **PTAX diário (BCB):** usado apenas como checagem de sanidade em nível diário, não como fonte intradiária.
+- **PTAX diário (BCB):** taxa oficial de referência do Banco Central, usada apenas como checagem de sanidade da fonte (ver abaixo), não como fonte intradiária.
 - Ver detalhes completos de todas as fontes avaliadas e descartadas (HistData, Dukascopy, TradingView, Bloomberg) na documentação interna do projeto.
+
+### Sanity check da fonte (MT5 vs. PTAX oficial)
+
+Para confirmar que o feed de corretora demo é um proxy legítimo do USD/BRL à vista, casamos o `close` M1 do MT5 com a **PTAX de venda de fechamento** do BCB (API Olinda) **no mesmo instante** — a PTAX é apurada ~13h de Brasília (≈16h UTC), que cai dentro da nossa sessão. Match *nearest* com tolerância de 5 min, 223 dias casados. Roda com `python -m src.sanity_ptax`.
+
+![Sanity check MT5 vs PTAX](figures/sanity_ptax.png)
+
+- **Fonte validada:** correlação de nível **0,998** — o feed reproduz cada oscilação da taxa oficial, **sem erro de escala, unidade ou inversão**.
+- **Achado — prêmio de nível:** o feed demo fica **~+72 bps (≈0,7%) acima** da PTAX de forma estável (mediana +71,8 bps, desvio 20 bps, **sem deriva secular** ao longo do ano), comportamento típico de cotação sintética de conta demo (markup de corretora).
+- **Limitação decorrente:** os níveis testados são "redondos" *no preço do feed*; o offset de ~0,7% os desloca frente aos redondos do mercado real. Isso é **desprezível para a grade grossa** (R$1,00 ≈ 18% de espaçamento) mas uma fração não-trivial das grades finas (R$0,05 ≈ 0,9%; R$0,01 ≈ 0,18%). Ou seja, **o nulo da grade R$1,00 é o mais confiável**, e o achado reforça o caveat de "cotação demo, não order flow". Não altera a conclusão nula — apenas enfraquece o poder de detectar um eventual efeito real nas grades finas.
 
 ### Reprodutibilidade
 
-O snapshot usado na análise (`data/raw/usdbrl_m1_fbs_demo.csv`) é **versionado diretamente no repositório** (não fica em `.gitignore`), justamente para que qualquer pessoa consiga reproduzir a análise sem precisar de uma conta demo MT5 própria. Para gerar um snapshot novo/atualizado, use `src/ingest_mt5.py` com o terminal MT5 aberto e logado.
+O snapshot usado na análise (`data/raw/usdbrl_m1_fbs_demo.csv`) é **versionado diretamente no repositório** (não fica em `.gitignore`), justamente para que qualquer pessoa consiga reproduzir a análise sem precisar de uma conta demo MT5 própria. Para gerar um snapshot novo/atualizado, use `src/ingest_mt5.py` com o terminal MT5 aberto e logado. O snapshot da PTAX (`data/raw/ptax_bcb_fechamento.csv`) também é versionado, para que o sanity check rode offline.
 
 ## Resultado confirmatório
 
@@ -132,6 +142,7 @@ src/
   stats.py           teste de sinal binomial mensal (literal) + Monte Carlo (complementar)
   run_analysis.py    driver ponta a ponta (primário + robustez)
   event_study.py     event-study assinado do toque (redondo vs. controle) → figura + CSV
+  sanity_ptax.py     sanity check da fonte: MT5 vs. PTAX oficial do BCB (match por instante)
 results/             tabelas de saída do teste confirmatório (versionadas)
 figures/             figuras de research (event-study)
 notebooks/           exploração e validação ad-hoc
