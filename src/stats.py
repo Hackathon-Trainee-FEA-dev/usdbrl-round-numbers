@@ -1,178 +1,208 @@
 """
-Teste confirmatorio: p-valor empirico (Monte Carlo) comparando o
-comportamento dos niveis redondos reais contra a distribuicao nula gerada
-pelos niveis de controle aleatorios de Osler (2000).
+Teste confirmatorio: niveis redondos reais vs. niveis de controle aleatorios
+de Osler (2000).
 
-## Desenho do teste (pre-registrado -- ver README.md / memoria do projeto)
+## Teste PRIMARIO -- sinal binomial mensal (LITERAL Osler 2000)
 
-A ideia e exatamente a de Osler (2000): os N conjuntos de niveis de controle
-artificiais formam uma distribuicao nula empirica de "como um nivel arbitrario
-se comporta". Compara-se a estatistica observada nos niveis redondos reais
-contra essa distribuicao.
+Osler nao usa percentil Monte Carlo. O procedimento dela (p.61-62 do paper):
 
-- H1a (reversao/bounce): a taxa de bounce nos niveis redondos e MAIOR do que a
-  taxa de bounce em niveis arbitrarios.
-      estatistica = bounce_rate = n_bounce / (n_bounce + n_continuation)
-      H0: nivel redondo nao difere de um nivel arbitrario.
-      teste unilateral (greater), pois a hipotese de Osler e direcional.
+  1. Para cada mes, calcula a bounce frequency dos niveis reais -> BP_mes.
+  2. Para cada mes, calcula a bounce frequency de cada um dos N conjuntos de
+     controle e tira a MEDIA sobre os conjuntos -> BA_mes.
+  3. Conta em quantos dos N_meses vale BP_mes > BA_mes.
+  4. Teste de sinal binomial: essa contagem vs. Binomial(N_meses, 0,5). A
+     "marginal significance" e a cauda da binomial.
 
-- H1b (aceleracao): a magnitude media dos eventos de *continuacao* nos niveis
-  redondos e MAIOR do que nos de controle.
-      estatistica = media de |close_fim_janela - nivel| entre continuacoes.
-      teste unilateral (greater).
+  bounce frequency = bounces / total de hits.
 
-## p-valor empirico
+Aplicado tambem a H1b (magnitude media de continuacao), com a mesma logica de
+sinal mensal -- mas H1b NAO e de Osler (2000) (ela nao testa aceleracao; ver
+memoria/README), entra como EXTENSAO ancorada em Curcio et al. (1997) e Brock,
+Lakonishok & LeBaron (1992).
 
-Para cada conjunto de controle k (k = 1..N) calcula-se a mesma estatistica,
-formando a distribuicao nula {T_k}. O p-valor empirico unilateral usa a
-formula (r + 1) / (N + 1) de North, Curtis & Sham (2002) -- o "+1" evita
-p = 0 e corresponde a incluir a propria amostra observada na contagem:
+## Teste COMPLEMENTAR -- p-valor empirico Monte Carlo (r+1)/(N+1)
 
-    p_greater = (#{ T_k >= T_obs } + 1) / (N + 1)
+Como o sinal binomial e pouco potente com poucos meses (~12 na nossa amostra
+-> precisa 10/12 p/ p<0,05), reportamos em paralelo o p-valor empirico de
+Monte Carlo (North, Curtis & Sham 2002): a estatistica agregada (pooled sobre
+todos os meses) dos niveis redondos vs. a distribuicao dessa mesma estatistica
+sobre os N conjuntos de controle. Mais potente, complementa o teste literal.
 
 ## Grades e falsificacao
 
-Testa-se cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) contra a mesma
-distribuicao nula de controle. A grade R$0,01 e um PLACEBO de falsificacao:
-espera-se que NAO seja significativa; se der significativa, e sinal de que o
-"efeito" pode ser artefato e nao ancoragem psicologica real. Os p-valores sao
-reportados por grade; correcao para multiplos testes (Bonferroni sobre as 4
-grades reais) e reportada em paralelo, mas as grades sao aninhadas/correlatas,
-entao Bonferroni e conservador.
+Cada grade real (R$1,00 / 0,50 / 0,10 / 0,05) e testada; R$0,01 e PLACEBO (nao
+deve dar significativo). Bonferroni sobre as 4 grades reais reportado em
+paralelo (conservador -- grades aninhadas/correlatas).
 
 ## Referencias
-
-- Osler, C. (2000). "Support for Resistance: Technical Analysis and Intraday
-  Exchange Rates." FRBNY Economic Policy Review, 6(2).
-- North, B. V., Curtis, D., & Sham, P. C. (2002). "A Note on the Calculation of
-  Empirical P Values from Monte Carlo Procedures." American Journal of Human
-  Genetics, 71(2), 439-441.
-- Davison, A. C., & Hinkley, D. V. (1997). "Bootstrap Methods and Their
-  Application." Cambridge University Press.
+- Osler, C. (2000). FRBNY Economic Policy Review, 6(2).
+- Curcio, R., Goodhart, C., Guillaume, D., Payne, R. (1997). "Do technical
+  trading rules generate profits?" LSE Financial Markets Group.
+- Brock, W., Lakonishok, J., LeBaron, B. (1992). J. Finance 47(5).
+- North, B. V., Curtis, D., Sham, P. C. (2002). Am. J. Human Genetics 71(2).
 """
+from math import comb
+
 import numpy as np
 import pandas as pd
 
-
-# ---------------------------------------------------------------------------
-# Estatisticas
-# ---------------------------------------------------------------------------
-
-def bounce_rate(events: pd.DataFrame) -> float:
-    """Fracao de eventos classificados como bounce. NaN se nao ha eventos."""
-    if len(events) == 0:
-        return np.nan
-    return float((events["outcome"] == "bounce").mean())
-
-
-def mean_continuation_magnitude(events: pd.DataFrame) -> float:
-    """Magnitude media entre os eventos de continuacao. NaN se nao ha continuacoes."""
-    cont = events.loc[events["outcome"] == "continuation", "magnitude"]
-    if len(cont) == 0:
-        return np.nan
-    return float(cont.mean())
+REAL_GRIDS = ["1.00", "0.50", "0.10", "0.05"]
+GRID_ORDER = {"1.00": 0, "0.50": 1, "0.10": 2, "0.05": 3, "0.01_placebo": 4}
 
 
 # ---------------------------------------------------------------------------
-# p-valor empirico
+# Testes de base
 # ---------------------------------------------------------------------------
 
-def empirical_pvalue(observed: float, null_samples: np.ndarray, alternative: str = "greater") -> float:
+def binomial_sign_pvalue(successes: int, n: int) -> float:
     """
-    p-valor empirico via formula (r + 1) / (N + 1) de North et al. (2002).
-
-    alternative:
-        'greater' -> H1: observado > nulo   (r = #{null >= observed})
-        'less'    -> H1: observado < nulo   (r = #{null <= observed})
-        'two-sided' -> 2 * min(greater, less), truncado em 1.0
+    Cauda superior de Binomial(n, 0,5): P(X >= successes). Teste de sinal
+    unilateral (a hipotese de Osler e direcional: BP > BA mais vezes que o
+    acaso). NaN se n == 0.
     """
+    if n == 0:
+        return np.nan
+    tail = sum(comb(n, k) for k in range(successes, n + 1))
+    return tail / (2 ** n)
+
+
+def empirical_pvalue(observed: float, null_samples: np.ndarray) -> float:
+    """p-valor empirico unilateral (greater) (r+1)/(N+1), North et al. (2002)."""
     null = np.asarray(null_samples, dtype=float)
     null = null[~np.isnan(null)]
-    n = null.size
-    if n == 0 or np.isnan(observed):
+    nn = null.size
+    if nn == 0 or np.isnan(observed):
         return np.nan
-
-    if alternative == "greater":
-        r = int(np.sum(null >= observed))
-        return (r + 1) / (n + 1)
-    if alternative == "less":
-        r = int(np.sum(null <= observed))
-        return (r + 1) / (n + 1)
-    if alternative == "two-sided":
-        p_greater = (int(np.sum(null >= observed)) + 1) / (n + 1)
-        p_less = (int(np.sum(null <= observed)) + 1) / (n + 1)
-        return min(1.0, 2 * min(p_greater, p_less))
-    raise ValueError(f"alternative invalido: {alternative}")
-
-
-def control_null_distribution(control_events: pd.DataFrame, statistic_fn) -> np.ndarray:
-    """
-    Calcula `statistic_fn` para cada conjunto de controle (agrupando por
-    set_id), retornando o array da distribuicao nula empirica.
-    """
-    if len(control_events) == 0:
-        return np.array([])
-    return control_events.groupby("set_id").apply(statistic_fn).to_numpy(dtype=float)
+    r = int(np.sum(null >= observed))
+    return (r + 1) / (nn + 1)
 
 
 # ---------------------------------------------------------------------------
-# Orquestracao do teste confirmatorio
+# Estatisticas mensais dos niveis redondos
 # ---------------------------------------------------------------------------
 
-def run_confirmatory_test(round_events: pd.DataFrame, control_events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Roda o teste confirmatorio completo: para cada grade de nivel redondo,
-    compara a taxa de bounce (H1a) e a magnitude media de continuacao (H1b)
-    contra a distribuicao nula dos conjuntos de controle.
+def _round_monthly_bounce(grid_events: pd.DataFrame, months: list) -> np.ndarray:
+    """BP_mes (bounce freq) por mes para uma grade. NaN em meses sem hits."""
+    out = np.full(len(months), np.nan)
+    idx = {m: i for i, m in enumerate(months)}
+    for m, g in grid_events.groupby("month"):
+        if m in idx and len(g) > 0:
+            out[idx[m]] = float((g["outcome"] == "bounce").mean())
+    return out
 
-    Retorna um DataFrame com uma linha por (grade x hipotese), contendo a
-    estatistica observada, a media/desvio da nula, o p-valor empirico
-    unilateral e o p-valor Bonferroni-corrigido (sobre as 4 grades reais).
-    """
-    # distribuicoes nulas (uma por conjunto de controle), calculadas uma vez
-    null_bounce = control_null_distribution(control_events, bounce_rate)
-    null_magnitude = control_null_distribution(control_events, mean_continuation_magnitude)
 
-    real_grids = ["1.00", "0.50", "0.10", "0.05"]
-    n_real = len(real_grids)
+def _round_monthly_magnitude(grid_events: pd.DataFrame, months: list) -> np.ndarray:
+    """MP_mes (magnitude media de continuacao) por mes. NaN em meses sem continuacoes."""
+    out = np.full(len(months), np.nan)
+    idx = {m: i for i, m in enumerate(months)}
+    cont = grid_events[grid_events["outcome"] == "continuation"]
+    for m, g in cont.groupby("month"):
+        if m in idx and len(g) > 0:
+            out[idx[m]] = float(g["magnitude"].mean())
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Estatisticas mensais/pooled dos controles
+# ---------------------------------------------------------------------------
+
+def _control_monthly_bounce_mean(ctrl: dict) -> np.ndarray:
+    """BA_mes: media, sobre conjuntos, da bounce freq de cada conjunto no mes."""
+    hits, bounces = ctrl["hits"], ctrl["bounces"]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        per_set = np.where(hits > 0, bounces / hits, np.nan)
+    return np.nanmean(per_set, axis=0)   # (n_months,)
+
+
+def _control_monthly_magnitude_mean(ctrl: dict) -> np.ndarray:
+    """MA_mes: media, sobre conjuntos, da magnitude media de continuacao no mes."""
+    cc, ms = ctrl["cont_count"], ctrl["mag_sum"]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        per_set = np.where(cc > 0, ms / cc, np.nan)
+    return np.nanmean(per_set, axis=0)
+
+
+def _control_pooled_bounce(ctrl: dict) -> np.ndarray:
+    """Distribuicao nula (pooled): bounce freq de cada conjunto sobre todos os meses."""
+    tot_h = ctrl["hits"].sum(axis=1)
+    tot_b = ctrl["bounces"].sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(tot_h > 0, tot_b / tot_h, np.nan)
+
+
+def _control_pooled_magnitude(ctrl: dict) -> np.ndarray:
+    """Distribuicao nula (pooled): magnitude media de continuacao por conjunto."""
+    tot_c = ctrl["cont_count"].sum(axis=1)
+    tot_m = ctrl["mag_sum"].sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(tot_c > 0, tot_m / tot_c, np.nan)
+
+
+# ---------------------------------------------------------------------------
+# Orquestracao
+# ---------------------------------------------------------------------------
+
+def _sign_test(bp: np.ndarray, ba: np.ndarray):
+    """Conta meses com BP>BA (ambos definidos) e roda o teste de sinal."""
+    comparable = ~np.isnan(bp) & ~np.isnan(ba)
+    n = int(comparable.sum())
+    successes = int(np.sum(bp[comparable] > ba[comparable]))
+    return successes, n, binomial_sign_pvalue(successes, n)
+
+
+def run_confirmatory_test(round_events: pd.DataFrame, ctrl: dict) -> pd.DataFrame:
+    """
+    Teste confirmatorio completo por grade x hipotese.
+
+    round_events: eventos dos niveis redondos (colunas grid, month, outcome,
+                  magnitude).
+    ctrl:         saida de events.run_control_monthly_stats (matrizes por
+                  conjunto x mes).
+
+    Colunas de saida: grade, hipotese, placebo, n_meses, sucessos_BP>BA,
+    p_binomial (LITERAL), estatistica_obs (pooled), nula_media,
+    p_montecarlo (complementar), p_binom_bonferroni.
+    """
+    months = ctrl["months"]
+
+    ba_bounce = _control_monthly_bounce_mean(ctrl)
+    ba_mag = _control_monthly_magnitude_mean(ctrl)
+    null_bounce_pooled = _control_pooled_bounce(ctrl)
+    null_mag_pooled = _control_pooled_magnitude(ctrl)
+    n_real = len(REAL_GRIDS)
 
     rows = []
     for grid_name, grid_events in round_events.groupby("grid"):
         is_placebo = grid_name.endswith("placebo")
 
-        # H1a -- bounce
-        obs_b = bounce_rate(grid_events)
-        p_b = empirical_pvalue(obs_b, null_bounce, alternative="greater")
+        # ---- H1a: bounce (LITERAL Osler) ----
+        bp = _round_monthly_bounce(grid_events, months)
+        s, nmo, p_bin = _sign_test(bp, ba_bounce)
+        obs_pooled = float((grid_events["outcome"] == "bounce").mean()) if len(grid_events) else np.nan
+        p_mc = empirical_pvalue(obs_pooled, null_bounce_pooled)
         rows.append({
-            "grade": grid_name,
-            "hipotese": "H1a_bounce",
-            "placebo": is_placebo,
-            "n_eventos": len(grid_events),
-            "estatistica_obs": obs_b,
-            "nula_media": float(np.nanmean(null_bounce)),
-            "nula_desvio": float(np.nanstd(null_bounce)),
-            "p_empirico": p_b,
-            "p_bonferroni": min(1.0, p_b * n_real) if (not is_placebo and not np.isnan(p_b)) else np.nan,
+            "grade": grid_name, "hipotese": "H1a_bounce", "placebo": is_placebo,
+            "n_meses": nmo, "sucessos_BPmaiorBA": s, "p_binomial": p_bin,
+            "estatistica_obs": obs_pooled, "nula_media": float(np.nanmean(null_bounce_pooled)),
+            "p_montecarlo": p_mc,
+            "p_binom_bonferroni": min(1.0, p_bin * n_real) if (not is_placebo and not np.isnan(p_bin)) else np.nan,
         })
 
-        # H1b -- magnitude de continuacao
-        obs_m = mean_continuation_magnitude(grid_events)
-        p_m = empirical_pvalue(obs_m, null_magnitude, alternative="greater")
-        n_cont = int((grid_events["outcome"] == "continuation").sum())
+        # ---- H1b: magnitude de continuacao (EXTENSAO, nao-Osler) ----
+        mp = _round_monthly_magnitude(grid_events, months)
+        s2, nmo2, p_bin2 = _sign_test(mp, ba_mag)
+        cont = grid_events[grid_events["outcome"] == "continuation"]
+        obs_mag = float(cont["magnitude"].mean()) if len(cont) else np.nan
+        p_mc2 = empirical_pvalue(obs_mag, null_mag_pooled)
         rows.append({
-            "grade": grid_name,
-            "hipotese": "H1b_magnitude",
-            "placebo": is_placebo,
-            "n_eventos": n_cont,
-            "estatistica_obs": obs_m,
-            "nula_media": float(np.nanmean(null_magnitude)),
-            "nula_desvio": float(np.nanstd(null_magnitude)),
-            "p_empirico": p_m,
-            "p_bonferroni": min(1.0, p_m * n_real) if (not is_placebo and not np.isnan(p_m)) else np.nan,
+            "grade": grid_name, "hipotese": "H1b_magnitude", "placebo": is_placebo,
+            "n_meses": nmo2, "sucessos_BPmaiorBA": s2, "p_binomial": p_bin2,
+            "estatistica_obs": obs_mag, "nula_media": float(np.nanmean(null_mag_pooled)),
+            "p_montecarlo": p_mc2,
+            "p_binom_bonferroni": min(1.0, p_bin2 * n_real) if (not is_placebo and not np.isnan(p_bin2)) else np.nan,
         })
 
     result = pd.DataFrame(rows)
-    grid_order = {"1.00": 0, "0.50": 1, "0.10": 2, "0.05": 3, "0.01_placebo": 4}
-    result["_ord"] = result["grade"].map(grid_order)
+    result["_ord"] = result["grade"].map(GRID_ORDER)
     result = result.sort_values(["_ord", "hipotese"]).drop(columns="_ord").reset_index(drop=True)
     return result

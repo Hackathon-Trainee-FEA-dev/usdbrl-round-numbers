@@ -1,41 +1,64 @@
 """
 Motor de deteccao de eventos e classificacao bounce/continuacao.
 
-Replica do desenho unificado de Osler (2000) (ver README.md / memoria do
-projeto): um "evento" ocorre quando o preco toca um nivel (redondo ou de
-controle) dentro de uma banda de tolerancia percentual; classifica-se o
-resultado observando o lado do nivel em que o preco esta ao final de uma
-janela fixa apos o toque.
+Replica do desenho de Osler (2000): um "evento" ocorre quando o preco toca um
+nivel (redondo ou de controle) dentro de uma banda de tolerancia percentual;
+classifica-se o resultado observando o lado do nivel em que o preco esta ao
+final de uma janela fixa apos o toque.
 
-    - bounce / reversao      (evidencia H1a): preco volta pro lado de onde veio.
-    - continuacao / aceleracao (evidencia H1b): preco permanece/segue pro
-      outro lado; magnitude = distancia percorrida alem do nivel.
+    - bounce / reversao        (evidencia H1a): preco volta pro lado de onde veio.
+    - continuacao / aceleracao (evidencia H1b): preco permanece/segue pro outro
+      lado; magnitude = distancia percorrida alem do nivel.
 
-Parametros primarios do desenho pre-registrado: banda = 0,01% de distancia
-do nivel, janela = 15 min (robustez: banda 0,00%/0,02%, janela 30 min).
+Parametros primarios do desenho pre-registrado: banda = 0,01% de distancia do
+nivel, janela = 15 min (robustez: banda 0,00%/0,02%, janela 30 min).
 
-Reaproveitado tanto pros niveis redondos reais (fixos, validos no dataset
-inteiro -- ver round_levels.py) quanto pros niveis de controle de Osler
-(validos so no dia em que foram gerados -- ver control_levels.py).
+## Sessao de negociacao
 
-## Decisoes de implementacao (nao estao no paper, documentadas aqui pra
-## transparencia -- nenhuma delas altera os parametros ja travados):
+Osler restringe a amostra a 9h-16h NY para excluir o overnight iliquido do
+feed 24h da EBS. Aqui a fonte ja e um simbolo *onshore* USDBRL (FBS-Demo) que
+so cota durante o pregao brasileiro: os dados existem apenas ~15:30-22:59 no
+timestamp do servidor. `filter_session` uniformiza isso mantendo a janela
+consistente [15:30, 23:00) e descartando o punhado de barras esparsas de
+abertura antecipada -- o equivalente BR ao recorte de sessao de Osler.
 
-- "Toque" = a faixa [low, high] da barra intersecta a banda [nivel*(1-tol),
-  nivel*(1+tol)] -- checagem via high/low, nao so pelo close, pra nao perder
-  toques intrabarra.
-- Um evento e a *primeira* barra de cada sequencia continua dentro da banda
-  (evita contar a mesma permanencia no nivel varias vezes).
-- Lado de aproximacao = lado do close da barra imediatamente anterior ao
-  toque (acima/abaixo do nivel).
-- Eventos sem `window_min` barras completas ate o fim da serie sao
-  descartados (nao da pra observar o resultado).
-- Eventos cuja janela de classificacao atravessa um gap de negociacao >
-  `max_gap_min` (ex. fechamento de fim de semana) sao descartados -- mesma
-  logica do bug de gap de fim de semana encontrado na fase piloto.
+## Decisoes de implementacao (documentadas p/ transparencia; nao alteram os
+## parametros travados):
+
+- "Toque" = a faixa [low, high] da barra intersecta a banda do nivel -- via
+  high/low, nao so o close, pra nao perder toques intrabarra (adaptacao
+  documentada: nao temos quote tick-by-tick, so OHLC M1).
+- Um evento e a *primeira* barra de cada sequencia continua dentro da banda.
+- Lado de aproximacao = lado do close da barra imediatamente anterior.
+- Eventos sem `window_min` barras completas ate o fim da serie sao descartados.
+- Eventos cuja janela atravessa um gap de negociacao > `max_gap_min` (ex.
+  fechamento overnight/fim de semana) sao descartados.
 """
 import numpy as np
 import pandas as pd
+
+from src import control_levels
+
+
+SESSION_START = "15:30"   # timestamp do servidor FBS (ver docstring)
+SESSION_END = "23:00"     # exclusivo
+
+
+# ---------------------------------------------------------------------------
+# Sessao
+# ---------------------------------------------------------------------------
+
+def filter_session(df: pd.DataFrame, start: str = SESSION_START, end: str = SESSION_END,
+                   time_col: str = "time") -> pd.DataFrame:
+    """
+    Mantem apenas as barras cujo horario (do timestamp) cai em [start, end).
+    Aplicar UMA vez, upstream, antes de gerar OHLC diario / niveis / eventos.
+    """
+    d = df.copy()
+    t = pd.to_datetime(d[time_col], utc=True)
+    tod = t.dt.strftime("%H:%M")
+    keep = (tod >= start) & (tod < end)
+    return d.loc[keep].reset_index(drop=True)
 
 
 def _prepare_series(df: pd.DataFrame, time_col: str = "time") -> pd.DataFrame:
@@ -43,21 +66,15 @@ def _prepare_series(df: pd.DataFrame, time_col: str = "time") -> pd.DataFrame:
     d[time_col] = pd.to_datetime(d[time_col], utc=True)
     d = d.sort_values(time_col).reset_index(drop=True)
     d["gap_min"] = d[time_col].diff().dt.total_seconds().div(60)
+    d["month"] = d[time_col].dt.tz_convert(None).dt.to_period("M")
     return d
 
 
 # ---------------------------------------------------------------------------
-# Niveis redondos: um nivel fixo, valido no dataset inteiro.
+# Niveis redondos: nivel fixo, valido na serie inteira.
 # ---------------------------------------------------------------------------
 
 def detect_touch_events(series: pd.DataFrame, level: float, tolerance_pct: float) -> pd.DataFrame:
-    """
-    Detecta eventos discretos de "toque" num unico nivel, na serie inteira.
-
-    Retorna um DataFrame com uma linha por evento: indice global do bar de
-    toque (`idx`), horario (`time`) e lado de aproximacao (`approach_side`,
-    'above'/'below', baseado no close da barra imediatamente anterior).
-    """
     band_lo = level * (1 - tolerance_pct)
     band_hi = level * (1 + tolerance_pct)
 
@@ -72,7 +89,7 @@ def detect_touch_events(series: pd.DataFrame, level: float, tolerance_pct: float
     shifted = np.concatenate([[False], in_band[:-1]])
     event_start = in_band & (~shifted)
     event_idx = np.where(event_start)[0]
-    event_idx = event_idx[event_idx > 0]  # descarta toque na 1a barra (sem "antes")
+    event_idx = event_idx[event_idx > 0]
     if event_idx.size == 0:
         return pd.DataFrame(columns=["idx", "time", "approach_side"])
 
@@ -86,19 +103,15 @@ def detect_touch_events(series: pd.DataFrame, level: float, tolerance_pct: float
     })
 
 
-def classify_events(series: pd.DataFrame, events: pd.DataFrame, level: float, window_min: int, max_gap_min: int) -> pd.DataFrame:
-    """
-    Pra cada evento de toque, olha `window_min` barras a frente e classifica
-    como bounce (voltou pro lado original) ou continuacao (seguiu/passou pro
-    outro lado). Descarta eventos sem barras suficientes ate o fim da serie
-    ou com gap de negociacao > max_gap_min dentro da janela.
-    """
+def classify_events(series: pd.DataFrame, events: pd.DataFrame, level: float,
+                    window_min: int, max_gap_min: int) -> pd.DataFrame:
     if events.empty:
-        return pd.DataFrame(columns=["time", "level", "approach_side", "outcome", "magnitude"])
+        return pd.DataFrame(columns=["time", "month", "level", "approach_side", "outcome", "magnitude"])
 
     n = len(series)
     close = series["close"].to_numpy()
     gaps = series["gap_min"].to_numpy()
+    months = series["month"].to_numpy()
 
     rows = []
     for idx, time, approach_side in events[["idx", "time", "approach_side"]].itertuples(index=False):
@@ -106,38 +119,31 @@ def classify_events(series: pd.DataFrame, events: pd.DataFrame, level: float, wi
         j = i + window_min
         if j >= n:
             continue
-        window_gaps = gaps[i + 1: j + 1]
-        if (window_gaps > max_gap_min).any():
+        if (gaps[i + 1: j + 1] > max_gap_min).any():
             continue
 
         end_close = close[j]
         side_end = "below" if end_close < level else "above"
         outcome = "bounce" if side_end == approach_side else "continuation"
-        magnitude = abs(end_close - level)
-
         rows.append({
             "time": time,
+            "month": months[i],
             "level": level,
             "approach_side": approach_side,
             "outcome": outcome,
-            "magnitude": magnitude,
+            "magnitude": abs(end_close - level),
         })
 
     return pd.DataFrame(rows)
 
 
-def run_round_level_events(
-    df: pd.DataFrame,
-    grids: dict,
-    tolerance_pct: float = 0.0001,
-    window_min: int = 15,
-    max_gap_min: int = 5,
-    time_col: str = "time",
-) -> pd.DataFrame:
+def run_round_level_events(df: pd.DataFrame, grids: dict, tolerance_pct: float = 0.0001,
+                           window_min: int = 15, max_gap_min: int = 5,
+                           time_col: str = "time") -> pd.DataFrame:
     """
-    Roda deteccao + classificacao de eventos pra todas as grades de niveis
-    redondos (ver round_levels.GRIDS / round_levels.all_round_levels), usando
-    o dataset inteiro (niveis sao fixos/nominais, validos em qualquer data).
+    Deteccao + classificacao de eventos pra todas as grades de niveis redondos.
+    `df` deve JA estar filtrado por sessao (ver filter_session).
+    Retorna eventos com coluna `month` (para o teste de sinal mensal de Osler).
     """
     series = _prepare_series(df, time_col=time_col)
 
@@ -160,91 +166,112 @@ def run_round_level_events(
 
 
 # ---------------------------------------------------------------------------
-# Niveis de controle: um nivel por dia, valido so naquele dia (o toque tem
-# que acontecer no dia em que o nivel "nasceu" -- a janela de classificacao
-# depois do toque pode seguir pra frente na serie normalmente).
+# Niveis de controle: 20 R + 20 S por dia, N conjuntos (literal Osler 2000).
+# Gerados sob demanda por dia e reduzidos a estatisticas por (conjunto, mes),
+# para nao materializar os ~45M niveis. Retorna as matrizes que o teste de
+# sinal binomial mensal (stats.py) precisa.
 # ---------------------------------------------------------------------------
 
-def run_control_level_events(
-    df: pd.DataFrame,
-    control_levels: pd.DataFrame,
-    tolerance_pct: float = 0.0001,
-    window_min: int = 15,
-    max_gap_min: int = 5,
-    time_col: str = "time",
-) -> pd.DataFrame:
+def run_control_monthly_stats(df: pd.DataFrame, n_sets: int, seed: int,
+                              tolerance_pct: float = 0.0001, window_min: int = 15,
+                              levels_per_side: int = control_levels.LEVELS_PER_SIDE,
+                              max_gap_min: int = 5, time_col: str = "time") -> dict:
     """
-    Roda deteccao + classificacao de eventos pros niveis de controle de
-    Osler (ver control_levels.generate_control_levels). Vetorizado por dia:
-    pra cada dia, testa todos os niveis (de todos os conjuntos) que nascem
-    naquele dia de uma vez via broadcasting numpy, em vez de escanear a
-    serie inteira nivel a nivel (inviavel com milhares de conjuntos).
+    Para cada dia, sorteia 2*levels_per_side niveis de controle por conjunto,
+    detecta toques (vetorizado sobre todos os niveis do dia) e classifica.
+    Acumula por (conjunto, mes): hits, bounces, n_continuacoes e soma de
+    magnitudes.
+
+    `df` deve JA estar filtrado por sessao.
+
+    Retorna dict com:
+        months      : lista ordenada de Periods (mes)
+        hits        : array (n_sets, n_months)
+        bounces     : array (n_sets, n_months)
+        cont_count  : array (n_sets, n_months)
+        mag_sum     : array (n_sets, n_months)
     """
     series = _prepare_series(df, time_col=time_col)
-    series["date"] = series[time_col].dt.date
+    daily = control_levels.daily_levels_table(df, time_col=time_col)
 
-    low = series["low"].to_numpy()
-    high = series["high"].to_numpy()
     close = series["close"].to_numpy()
+    high = series["high"].to_numpy()
+    low = series["low"].to_numpy()
     gaps = series["gap_min"].to_numpy()
-    times = series["time"].to_numpy()
     n = len(series)
 
-    results = []
-    day_groups = series.groupby("date").indices  # date -> array de posicoes globais
+    series_dates = series[time_col].dt.date
+    day_positions = series_dates.groupby(series_dates).groups  # date -> Index de posicoes
 
-    for date, day_idx in day_groups.items():
-        day_idx = np.asarray(day_idx)
-        day_levels = control_levels[control_levels["date"] == date]
-        if day_levels.empty or day_idx.size == 0:
+    months = sorted(daily["month"].unique())
+    month_col = {m: i for i, m in enumerate(months)}
+    n_months = len(months)
+
+    hits = np.zeros((n_sets, n_months))
+    bounces = np.zeros((n_sets, n_months))
+    cont_count = np.zeros((n_sets, n_months))
+    mag_sum = np.zeros((n_sets, n_months))
+
+    win_offsets = np.arange(1, window_min + 1)
+    rng = np.random.default_rng(seed)
+
+    for row in daily.itertuples(index=False):
+        # sorteio consome o rng na ordem dos dias -> reproduzivel
+        levels, set_ids, _side = control_levels.draw_day_levels(
+            row.open, row.month_range, n_sets, rng, levels_per_side)
+
+        day_pos = np.asarray(day_positions[row.date])
+        D = day_pos.size
+        if D == 0:
             continue
+        m_col = month_col[row.month]
 
-        levels_arr = day_levels["level"].to_numpy()
-        set_ids = day_levels["set_id"].to_numpy()
-        level_types = day_levels["level_type"].to_numpy()
+        d_low = low[day_pos]
+        d_high = high[day_pos]
 
-        d_low = low[day_idx]
-        d_high = high[day_idx]
+        band_lo = levels[:, None] * (1 - tolerance_pct)
+        band_hi = levels[:, None] * (1 + tolerance_pct)
+        in_band = (d_low[None, :] <= band_hi) & (d_high[None, :] >= band_lo)   # (L, D)
 
-        band_lo = levels_arr[:, None] * (1 - tolerance_pct)
-        band_hi = levels_arr[:, None] * (1 + tolerance_pct)
-
-        in_band = (d_low[None, :] <= band_hi) & (d_high[None, :] >= band_lo)  # (L, D)
-        prev_col = np.zeros((in_band.shape[0], 1), dtype=bool)
-        shifted = np.concatenate([prev_col, in_band[:, :-1]], axis=1)
+        shifted = np.concatenate([np.zeros((in_band.shape[0], 1), dtype=bool), in_band[:, :-1]], axis=1)
         event_start = in_band & (~shifted)
 
-        for li in range(levels_arr.shape[0]):
-            local_pos = np.where(event_start[li])[0]
-            if local_pos.size == 0:
-                continue
-            level = levels_arr[li]
+        ev_rows, ev_cols = np.nonzero(event_start)
+        if ev_rows.size == 0:
+            continue
 
-            for lp in local_pos:
-                gi = day_idx[lp]
-                if gi == 0:
-                    continue
-                approach_side = "below" if close[gi - 1] < level else "above"
+        gi = day_pos[ev_cols]                 # posicao global do toque
+        j = gi + window_min                   # fim da janela (global)
 
-                j = gi + window_min
-                if j >= n:
-                    continue
-                if (gaps[gi + 1: j + 1] > max_gap_min).any():
-                    continue
+        m1 = (gi > 0) & (j < n)
+        if not m1.any():
+            continue
+        ev_rows, gi, j = ev_rows[m1], gi[m1], j[m1]
 
-                end_close = close[j]
-                side_end = "below" if end_close < level else "above"
-                outcome = "bounce" if side_end == approach_side else "continuation"
-                magnitude = abs(end_close - level)
+        # checagem de gap dentro da janela (vetorizada)
+        idx_mat = gi[:, None] + win_offsets[None, :]         # (K, window_min)
+        gap_ok = ~(gaps[idx_mat] > max_gap_min).any(axis=1)
+        if not gap_ok.any():
+            continue
+        ev_rows, gi, j = ev_rows[gap_ok], gi[gap_ok], j[gap_ok]
 
-                results.append({
-                    "time": times[gi],
-                    "level": level,
-                    "set_id": set_ids[li],
-                    "level_type": f"control_{level_types[li]}",
-                    "approach_side": approach_side,
-                    "outcome": outcome,
-                    "magnitude": magnitude,
-                })
+        lvl_ev = levels[ev_rows]
+        set_ev = set_ids[ev_rows]
+        approach_below = close[gi - 1] < lvl_ev
+        end_below = close[j] < lvl_ev
+        is_bounce = (end_below == approach_below)
+        magnitude = np.abs(close[j] - lvl_ev)
 
-    return pd.DataFrame(results)
+        hits[:, m_col] += np.bincount(set_ev, minlength=n_sets)
+        bounces[:, m_col] += np.bincount(set_ev[is_bounce], minlength=n_sets)
+        cont_mask = ~is_bounce
+        cont_count[:, m_col] += np.bincount(set_ev[cont_mask], minlength=n_sets)
+        mag_sum[:, m_col] += np.bincount(set_ev[cont_mask], weights=magnitude[cont_mask], minlength=n_sets)
+
+    return {
+        "months": months,
+        "hits": hits,
+        "bounces": bounces,
+        "cont_count": cont_count,
+        "mag_sum": mag_sum,
+    }
