@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Processed/intermediate data (regenerable from data/raw + src/)
+# Raw MT5 snapshots ARE committed on purpose for reproducibility
+# (see README) — only large regenerated intermediates are ignored.
+data/processed/*
+!data/processed/.gitkeep
+
+# Streamlit
+.streamlit/secrets.toml
