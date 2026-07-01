@@ -2,7 +2,7 @@
 
 Replicação da metodologia de Carol Osler para o efeito de "número redondo" (suporte/resistência psicológico) em câmbio intradiário, aplicada ao par **USD/BRL** — nunca testado antes para o Real, até onde levantamos na literatura.
 
-> **Este README documenta o desenho pré-registrado antes de rodar o teste confirmatório.** Os parâmetros abaixo foram travados antes de qualquer resultado ser observado, para evitar p-hacking / sequential testing. Resultados exploratórios de uma fase piloto anterior (com desenho diferente, descartado) existem apenas como motivação histórica e **não** devem ser citados como resposta final — ver seção "Fase piloto" abaixo.
+> **Este README documenta o desenho antes dos resultados.** Os parâmetros foram travados antes de observar qualquer resultado, para evitar p-hacking / sequential testing. Uma primeira rodada usou um proxy não-literal do controle/teste; após ler o PDF original, o desenho foi **corrigido para a fidelidade literal de Osler** e o resultado nulo se manteve (ver "Teste confirmatório" → nota de integridade). Resultados de uma fase piloto anterior (desenho diferente, descartado) existem só como motivação histórica e **não** devem ser citados como resposta final — ver "Fase piloto" abaixo.
 
 ## Hipótese
 
@@ -15,7 +15,7 @@ Níveis de preço "redondos" (ex.: R$5,00, R$5,50, R$5,10) funcionam como suport
 
 Réplica direta de **Osler, C. (2000), "Support for Resistance: Technical Analysis and Intraday Exchange Rates", FRBNY Economic Policy Review, Vol. 6, No. 2**, adaptada para os dados disponíveis (M1 real via MT5, não order-flow proprietário).
 
-> Fonte dos parâmetros: cópia mirror do paper (o PDF original do NY Fed bloqueou fetch automatizado com erro 403). Os números foram considerados confiáveis o bastante para ancorar o desenho, mas **serão confirmados contra o PDF original antes da versão final do paper.**
+> **Fonte dos parâmetros — confirmada contra o PDF original.** O desenho foi checado ao pé da letra contra o PDF original do NY Fed (`0007osle.pdf`, FRBNY EPR jul/2000, pp.53-68), obtido via `curl` com User-Agent de navegador depois que o fetch automatizado retornava 403. O procedimento literal (controle de 20 suportes + 20 resistências por dia, teste de sinal binomial mensal, definições de hit/bounce) está descrito abaixo exatamente como no paper, salvo as adaptações inevitáveis ao cenário brasileiro, sempre sinalizadas.
 
 ### Evento unificado (H1a/H1b em um único teste)
 
@@ -25,41 +25,55 @@ Réplica direta de **Osler, C. (2000), "Support for Resistance: Technical Analys
    - Se o preço **voltou** para o lado original do nível dentro da janela → **bounce** (evidência para H1a).
    - Se o preço **permaneceu do outro lado / seguiu** → **continuação** (evidência para H1b; magnitude = quanto se afastou do nível).
 
+> **H1a é a réplica literal; H1b é extensão.** Osler (2000) testa *reversão* (bounce), mas **não** testa aceleração — no texto: *"The hypothesis that prices will trend once a trading signal is breached … is not examined here"* (p.2). Por isso H1a (bounce) é a replicação literal, enquanto **H1b (aceleração/magnitude) entra como extensão explícita**, ancorada em Curcio et al. (1997) e Brock, Lakonishok & LeBaron (1992) — os trabalhos que a própria Osler cita para "os preços se movem rapidamente uma vez rompido o nível".
+
 ### Grupo de controle / placebo
 
-Não é offset de grid nem bootstrap de blocos dos retornos — é o **algoritmo de níveis aleatórios do próprio Osler**: para cada dia, gerar níveis artificiais
+Não é offset de grid nem bootstrap de blocos dos retornos — é o **algoritmo de níveis aleatórios do próprio Osler**. Para cada dia de pregão, gera-se **20 resistências (R) + 20 suportes (S)** — o número exato do paper:
 
 ```
-R = Abertura + b × range
-S = Abertura − a × range
-a, b ~ Uniforme(0, 1)
+R_i = Abertura_dia + b_i × range_mês      b_i ~ Uniforme(0, 1)
+S_i = Abertura_dia − a_i × range_mês      a_i ~ Uniforme(0, 1)     i = 1..20
 ```
 
-onde `range` é o maior gap absoluto entre a abertura e as máximas/mínimas intradiárias observadas naquele mês. Compara-se a taxa de bounce/continuação nos níveis redondos reais vs. nesses níveis artificiais (Osler usou 10.000 conjuntos; ajustamos N pelo custo computacional).
+onde `range_mês` é o maior gap absoluto entre a abertura e as máximas/mínimas intradiárias observadas naquele mês. Os níveis artificiais são **arredondados à precisão de cotação** (4 casas decimais para o USD/BRL — Osler 2000, endnote 3). Compara-se a taxa de bounce/continuação nos níveis redondos reais vs. nesses níveis artificiais.
+
+Osler gerou **10.000 conjuntos** completos. Aqui o run primário usa **N = 5.000** (meio-termo defensável: a estatística de referência do controle é uma **média sobre os conjuntos**, que converge muito antes de 10.000). Parametrizável em `src/run_analysis.py` (`N_SETS`). A geração é feita **por dia, sob demanda** dentro do scan de eventos (`src/events.py`), para não materializar os ~45 milhões de níveis (5.000 × 224 dias × 40) em memória.
+
+### Sessão de negociação (equivalente BR ao recorte 9h–16h NY)
+
+Osler restringe a amostra a 9h–16h NY para excluir o overnight ilíquido do feed 24h da EBS. Aqui a fonte já é um símbolo **onshore** `USDBRL` (FBS-Demo) que **só cota durante o pregão brasileiro**: não existe barra fora de ~14h–23h no timestamp do servidor. O filtro `filter_session` mantém a janela consistente **[15:30, 23:00)** (uniformiza os dias que abrem 15:30 e descarta as poucas barras esparsas de abertura antecipada) — ou seja, a restrição de sessão já vem embutida na fonte, e o filtro só a torna uniforme. O offset exato servidor→horário de Brasília não é confirmável sem documentação do broker (FBS ≈ UTC+2/+3), então a janela é reportada pelo timestamp dos dados.
 
 ### Granularidade dos níveis redondos
 
 Hierarquia por força decrescente: **R$1,00 / R$0,50 / R$0,10 / R$0,05**, com **R$0,01 como placebo de falsificação** (nível "redondo" fraco demais para ter efeito psicológico esperado — serve de checagem negativa). Definida por análise de poder estatístico real sobre os dados MT5 durante a fase piloto.
 
-### Teste confirmatório (p-valor empírico Monte Carlo)
+### Teste confirmatório
 
-Segue diretamente a lógica de Osler (2000): os `N` conjuntos de níveis de controle artificiais formam uma **distribuição nula empírica** de como um nível *arbitrário* se comporta. A estatística observada nos níveis redondos reais é comparada contra essa distribuição.
+Dois testes complementares, cada grade contra a mesma nula de controle.
 
-- **H1a (reversão):** taxa de bounce nos níveis redondos > taxa de bounce em níveis arbitrários. Estatística: `bounce_rate = n_bounce / (n_bounce + n_continuation)`. Teste **unilateral** (a hipótese de Osler é direcional).
-- **H1b (aceleração):** magnitude média dos eventos de *continuação* nos níveis redondos > nos de controle. Estatística: média de `|close_fim_janela − nível|` entre continuações. Também unilateral.
+**(1) PRIMÁRIO — sinal binomial mensal (o teste literal de Osler 2000).** Osler *não* usa percentil de Monte Carlo. O procedimento dela (pp.61-62):
 
-Para cada conjunto de controle `k = 1..N`, calcula-se a mesma estatística, formando a nula `{T_k}`. O p-valor empírico unilateral usa a fórmula `(r + 1) / (N + 1)` de North, Curtis & Sham (2002), onde `r = #{T_k ≥ T_obs}` (o `+1` evita p = 0 e corresponde a incluir a própria amostra observada).
+1. Para cada mês, calcula a bounce frequency dos níveis reais → `BP_mês`.
+2. Para cada mês, calcula a bounce frequency de cada um dos N conjuntos de controle e tira a **média sobre os conjuntos** → `BA_mês`.
+3. Conta em quantos dos `N_meses` vale `BP_mês > BA_mês`.
+4. **Teste de sinal binomial:** essa contagem vs. `Binomial(N_meses, 0,5)`; a significância é a cauda superior.
 
-Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada contra a mesma nula; reporta-se o p-valor por grade e, em paralelo, a correção **Bonferroni** sobre as 4 grades reais (conservadora, já que as grades são aninhadas/correlatas). A grade **R$0,01 é placebo**: espera-se que *não* seja significativa — se for, é sinal de artefato, não de ancoragem real.
+onde `bounce frequency = bounces / total de hits`. A mesma lógica de sinal mensal é aplicada a H1b, trocando a bounce frequency pela magnitude média de continuação (`MP_mês` vs `MA_mês`). Teste **unilateral** (as hipóteses são direcionais).
 
-`N = 2.000` conjuntos de controle no run primário (resolução de p ≈ 1/2001); Osler usou 10.000, e o custo computacional aqui permite escalar até lá (~3 min) como robustez. Parametrizável em `src/control_levels.py`.
+**(2) COMPLEMENTAR — p-valor empírico Monte Carlo `(r+1)/(N+1)`.** Com apenas ~13 meses de amostra, o sinal binomial é **pouco potente** (precisa de ~10-11 dos 13 meses para p < 0,05). Como checagem mais potente, reportamos em paralelo o p-valor empírico de North, Curtis & Sham (2002): a estatística *agregada* (pooled sobre todos os meses) dos níveis redondos vs. a distribuição dessa mesma estatística sobre os N conjuntos de controle, com `r = #{T_k ≥ T_obs}`.
 
-> **Pré-registro:** este teste (estatística, lado, fórmula de p-valor, tratamento de múltiplas grades e placebo) foi fixado e commitado **antes** de rodar o resultado confirmatório — ver histórico do git.
+Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada; reporta-se o p por grade e, em paralelo, a correção **Bonferroni** sobre as 4 grades (conservadora — grades aninhadas/correlatas). A grade **R$0,01 é placebo de falsificação**: espera-se que *não* seja significativa; se for, é sinal de **artefato**, não de ancoragem real.
+
+`N = 5.000` conjuntos de controle no run primário. Parametrizável em `src/run_analysis.py` (`N_SETS`, `SEED`).
+
+> **Nota de integridade — correção metodológica.** Uma primeira rodada usou um *proxy* não-literal (controle de 1 R + 1 S por dia, N = 2.000, e p-valor de Monte Carlo como teste primário). Após obter e ler o **PDF original**, o desenho foi corrigido para a fidelidade literal descrita acima (controle 20+20/dia, teste de sinal binomial mensal). **O resultado nulo de H1a se manteve** entre o proxy e a versão literal — o que reforça a robustez da conclusão. Esta versão literal é a definitiva.
 
 ## Dados
 
 - **Fonte primária:** MetaTrader5, símbolo `USDBRL`, conta demo **FBS-Demo**, M1 real (não agregado), ~336 dias corridos (2025-07-30 até hoje), 224 dias distintos de pregão.
 - **Robustez out-of-sample:** conta demo **Tickmill-Demo** (corretora diferente, mesmo desenho).
+- **Sessão:** símbolo *onshore* que só cota o pregão brasileiro; a análise usa a janela consistente **[15:30, 23:00)** do timestamp do servidor (98.694 barras). Ver "Sessão de negociação" acima.
 - **PTAX diário (BCB):** usado apenas como checagem de sanidade em nível diário, não como fonte intradiária.
 - Ver detalhes completos de todas as fontes avaliadas e descartadas (HistData, Dukascopy, TradingView, Bloomberg) na documentação interna do projeto.
 
@@ -69,30 +83,32 @@ O snapshot usado na análise (`data/raw/usdbrl_m1_fbs_demo.csv`) é **versionado
 
 ## Resultado confirmatório
 
-**Resultado nulo: não há evidência do efeito de número redondo de Osler para o USD/BRL neste conjunto de dados** (~11 meses de M1, FBS-Demo, 224 dias de pregão). O teste pré-registrado foi rodado uma única vez, com `N = 2.000` conjuntos de controle. Tabela completa em [`results/confirmatory_results.csv`](results/confirmatory_results.csv); reproduzível com `python -m src.run_analysis`.
+**Resultado nulo: não há evidência do efeito de número redondo de Osler para o USD/BRL neste conjunto de dados** (13 meses de M1, FBS-Demo, sessão [15:30, 23:00), ~98,7 mil barras). Rodado com `N = 5.000` conjuntos de controle sob o desenho literal. Tabela completa (primário + 3 variantes de robustez) em [`results/confirmatory_results.csv`](results/confirmatory_results.csv); reproduzível com `python -m src.run_analysis`.
 
-Desenho primário (banda 0,01%, janela 15 min):
+Desenho primário (banda 0,01%, janela 15 min). `p_binomial` = teste literal de sinal mensal; `p_MC` = Monte Carlo complementar:
 
-| Grade | Hipótese | Estatística obs. | Nula (média) | p empírico |
-|-------|----------|-----------------:|-------------:|-----------:|
-| R$1,00 | H1a bounce | 0,447 | 0,547 | 1,000 |
-| R$0,50 | H1a bounce | 0,546 | 0,547 | 0,527 |
-| R$0,10 | H1a bounce | 0,513 | 0,547 | 0,982 |
-| R$0,05 | H1a bounce | 0,547 | 0,547 | 0,502 |
-| R$1,00 | H1b magnitude | 0,0039 | 0,0046 | 0,998 |
-| R$0,50 | H1b magnitude | 0,0047 | 0,0046 | 0,396 |
-| R$0,10 | H1b magnitude | 0,0050 | 0,0046 | 0,100 |
-| R$0,05 | H1b magnitude | 0,0049 | 0,0046 | 0,161 |
-| **R$0,01 (placebo)** | H1a / H1b | — | — | 0,551 / 0,272 |
+| Grade | Hipótese | Meses (BP>BA) | Est. obs. | Nula (média) | p_binomial | p_MC |
+|-------|----------|:-------------:|----------:|-------------:|-----------:|-----:|
+| R$1,00 | H1a bounce | 0/2 | 0,447 | 0,550 | 1,000 | 1,000 |
+| R$0,50 | H1a bounce | 3/6 | 0,546 | 0,550 | 0,656 | 0,814 |
+| R$0,10 | H1a bounce | 4/12 | 0,519 | 0,550 | 0,927 | 1,000 |
+| R$0,05 | H1a bounce | 8/13 | 0,551 | 0,550 | 0,291 | 0,347 |
+| R$1,00 | H1b magnitude | 1/2 | 0,0039 | 0,0046 | 0,750 | 1,000 |
+| R$0,50 | H1b magnitude | 4/6 | 0,0047 | 0,0046 | 0,344 | 0,058 |
+| R$0,10 | H1b magnitude | 7/12 | 0,0048 | 0,0046 | 0,387 | **0,001** |
+| R$0,05 | H1b magnitude | 5/13 | 0,0047 | 0,0046 | 0,867 | **0,004** |
+| **R$0,01 (placebo)** | H1a bounce | 6/13 | 0,546 | 0,550 | 0,709 | 0,827 |
+| **R$0,01 (placebo)** | H1b magnitude | 6/13 | 0,0047 | 0,0046 | 0,709 | **0,025** |
 
 Leitura:
 
-- **H1a (reversão):** a taxa de bounce nos níveis redondos **não** supera a de níveis arbitrários — fica igual ou até um pouco *abaixo* da média nula (0,547). Nenhum p < 0,05.
-- **H1b (aceleração):** a magnitude média de continuação nos níveis redondos não difere de forma significativa da nula. Nenhum p < 0,05.
-- **Placebo (R$0,01):** não significativo, como esperado — sinal de que o desenho não está fabricando efeito espúrio.
-- **Robustez:** o resultado nulo se mantém nas variantes de banda (0,00% e 0,02%) e de janela (30 min) — o menor p empírico em qualquer combinação grade × variante ficou em ~0,07, ainda acima de 0,05.
+- **H1a (reversão) — nulo, os dois testes concordam.** A taxa de bounce nos níveis redondos não supera a de níveis arbitrários: fica igual ou um pouco *abaixo* da média nula (~0,55, valor próximo do ~56% que a própria Osler reporta). Nenhum `p_binomial` nem `p_MC` < 0,05, em nenhuma grade.
+- **H1b (aceleração) — nulo pelo teste literal; o "sinal" do Monte Carlo é artefato.** O sinal binomial mensal não acusa nada (todos `p_binomial` ≥ 0,34). O Monte Carlo *pooled* marca algumas grades como significativas (0,10 → 0,001; 0,05 → 0,004) — **mas marca também o placebo R$0,01 (0,025)**, que por construção não deveria ter efeito psicológico. Como o placebo mostra o mesmo padrão, isso é um **artefato de agregação**, não ancoragem: os níveis redondos (e o placebo, que ladrilha quase todo o eixo de preço) sentam exatamente sobre o caminho do preço, enquanto os controles ficam espalhados pelo range mensal — o que enviesa a comparação *pooled* de magnitude. O teste de sinal mensal, que compara mês a mês contra `BA_mês`, não cai nesse viés, e o placebo o denuncia. **Não há evidência crível de aceleração.**
+- **Robustez:** o nulo de H1a se mantém nas variantes de banda (0,00% / 0,02%) e janela (30 min). O padrão de H1b (literal nulo, MC positivo inclusive no placebo) também se repete, confirmando o diagnóstico de artefato.
 
-Isso é consistente com o resultado nulo da fase piloto (desenho pré-Osler, ver abaixo) e é uma resposta científica válida: o mecanismo documentado por Osler para pares de moeda de mercados desenvolvidos **não se replica** para o Real neste período. Limitações relevantes: janela amostral curta (~11 meses), cotação de corretora demo (não order flow), e a assimetria natural entre o número de eventos de uma grade real e de um conjunto de controle (limitação herdada do próprio desenho de Osler).
+**Limitação central — baixa potência.** Com apenas 13 meses, `Binomial(13, 0,5)` exige ~10-11 meses com `BP>BA` para p < 0,05; grades grossas (R$1,00) têm ainda menos meses com hits (só 2). O nulo é, portanto, um nulo **sob baixa potência**: ausência de evidência, não evidência forte de ausência. Outras limitações: cotação de corretora demo (não order flow), e a assimetria natural entre o número de eventos de uma grade real e de um conjunto de controle (herdada do desenho de Osler). Ainda assim, a convergência dos dois testes para H1a e o diagnóstico de artefato para H1b tornam a conclusão robusta dentro da amostra disponível.
+
+Isso é consistente com o resultado nulo da fase piloto (desenho pré-Osler, ver abaixo): o mecanismo documentado por Osler para pares de mercados desenvolvidos **não se replica** de forma detectável para o Real neste período.
 
 ## Estrutura do repositório
 
@@ -103,9 +119,9 @@ data/
 src/
   ingest_mt5.py      ingestão do histórico M1 via MetaTrader5
   round_levels.py    geração da grade de níveis redondos nominais
-  control_levels.py  gerador de níveis de controle aleatórios (Osler 2000)
-  events.py          detecção de toque + classificação bounce/continuação
-  stats.py           teste de p-valor empírico (redondo vs. nula de controle)
+  control_levels.py  gerador de níveis de controle (20 R + 20 S por dia, Osler 2000)
+  events.py          filtro de sessão + toque + classificação + scan mensal de controle
+  stats.py           teste de sinal binomial mensal (literal) + Monte Carlo (complementar)
   run_analysis.py    driver ponta a ponta (primário + robustez)
 results/             tabelas de saída do teste confirmatório (versionadas)
 notebooks/           exploração e validação ad-hoc
@@ -131,5 +147,6 @@ Esses resultados ficam documentados apenas como motivação para o desenho atual
 - Osler, C. (2003). "Currency Orders and Exchange Rate Dynamics: An Explanation for the Predictive Success of Technical Analysis." *Journal of Finance*, 58(5).
 - Alexander, S. (1961). "Price Movements in Speculative Markets: Trends or Random Walks?" *Industrial Management Review*.
 - Brock, W., Lakonishok, J., & LeBaron, B. (1992). "Simple Technical Trading Rules and the Stochastic Properties of Stock Returns." *Journal of Finance*, 47(5).
+- Curcio, R., Goodhart, C., Guillaume, D., & Payne, R. (1997). "Do Technical Trading Rules Generate Profits? Conclusions from the Intra-day Foreign Exchange Market." *LSE Financial Markets Group Discussion Paper* (âncora do H1b — aceleração após rompimento).
 - North, B. V., Curtis, D., & Sham, P. C. (2002). "A Note on the Calculation of Empirical P Values from Monte Carlo Procedures." *American Journal of Human Genetics*, 71(2), 439–441.
 - Davison, A. C., & Hinkley, D. V. (1997). *Bootstrap Methods and Their Application.* Cambridge University Press.
