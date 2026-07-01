@@ -41,6 +41,21 @@ onde `range` é o maior gap absoluto entre a abertura e as máximas/mínimas int
 
 Hierarquia por força decrescente: **R$1,00 / R$0,50 / R$0,10 / R$0,05**, com **R$0,01 como placebo de falsificação** (nível "redondo" fraco demais para ter efeito psicológico esperado — serve de checagem negativa). Definida por análise de poder estatístico real sobre os dados MT5 durante a fase piloto.
 
+### Teste confirmatório (p-valor empírico Monte Carlo)
+
+Segue diretamente a lógica de Osler (2000): os `N` conjuntos de níveis de controle artificiais formam uma **distribuição nula empírica** de como um nível *arbitrário* se comporta. A estatística observada nos níveis redondos reais é comparada contra essa distribuição.
+
+- **H1a (reversão):** taxa de bounce nos níveis redondos > taxa de bounce em níveis arbitrários. Estatística: `bounce_rate = n_bounce / (n_bounce + n_continuation)`. Teste **unilateral** (a hipótese de Osler é direcional).
+- **H1b (aceleração):** magnitude média dos eventos de *continuação* nos níveis redondos > nos de controle. Estatística: média de `|close_fim_janela − nível|` entre continuações. Também unilateral.
+
+Para cada conjunto de controle `k = 1..N`, calcula-se a mesma estatística, formando a nula `{T_k}`. O p-valor empírico unilateral usa a fórmula `(r + 1) / (N + 1)` de North, Curtis & Sham (2002), onde `r = #{T_k ≥ T_obs}` (o `+1` evita p = 0 e corresponde a incluir a própria amostra observada).
+
+Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada contra a mesma nula; reporta-se o p-valor por grade e, em paralelo, a correção **Bonferroni** sobre as 4 grades reais (conservadora, já que as grades são aninhadas/correlatas). A grade **R$0,01 é placebo**: espera-se que *não* seja significativa — se for, é sinal de artefato, não de ancoragem real.
+
+`N = 2.000` conjuntos de controle no run primário (resolução de p ≈ 1/2001); Osler usou 10.000, e o custo computacional aqui permite escalar até lá (~3 min) como robustez. Parametrizável em `src/control_levels.py`.
+
+> **Pré-registro:** este teste (estatística, lado, fórmula de p-valor, tratamento de múltiplas grades e placebo) foi fixado e commitado **antes** de rodar o resultado confirmatório — ver histórico do git.
+
 ## Dados
 
 - **Fonte primária:** MetaTrader5, símbolo `USDBRL`, conta demo **FBS-Demo**, M1 real (não agregado), ~336 dias corridos (2025-07-30 até hoje), 224 dias distintos de pregão.
@@ -82,3 +97,5 @@ Esses resultados ficam documentados apenas como motivação para o desenho atual
 - Osler, C. (2003). "Currency Orders and Exchange Rate Dynamics: An Explanation for the Predictive Success of Technical Analysis." *Journal of Finance*, 58(5).
 - Alexander, S. (1961). "Price Movements in Speculative Markets: Trends or Random Walks?" *Industrial Management Review*.
 - Brock, W., Lakonishok, J., & LeBaron, B. (1992). "Simple Technical Trading Rules and the Stochastic Properties of Stock Returns." *Journal of Finance*, 47(5).
+- North, B. V., Curtis, D., & Sham, P. C. (2002). "A Note on the Calculation of Empirical P Values from Monte Carlo Procedures." *American Journal of Human Genetics*, 71(2), 439–441.
+- Davison, A. C., & Hinkley, D. V. (1997). *Bootstrap Methods and Their Application.* Cambridge University Press.
