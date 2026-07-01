@@ -67,14 +67,48 @@ Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada contra a mesma nu
 
 O snapshot usado na análise (`data/raw/usdbrl_m1_fbs_demo.csv`) é **versionado diretamente no repositório** (não fica em `.gitignore`), justamente para que qualquer pessoa consiga reproduzir a análise sem precisar de uma conta demo MT5 própria. Para gerar um snapshot novo/atualizado, use `src/ingest_mt5.py` com o terminal MT5 aberto e logado.
 
+## Resultado confirmatório
+
+**Resultado nulo: não há evidência do efeito de número redondo de Osler para o USD/BRL neste conjunto de dados** (~11 meses de M1, FBS-Demo, 224 dias de pregão). O teste pré-registrado foi rodado uma única vez, com `N = 2.000` conjuntos de controle. Tabela completa em [`results/confirmatory_results.csv`](results/confirmatory_results.csv); reproduzível com `python -m src.run_analysis`.
+
+Desenho primário (banda 0,01%, janela 15 min):
+
+| Grade | Hipótese | Estatística obs. | Nula (média) | p empírico |
+|-------|----------|-----------------:|-------------:|-----------:|
+| R$1,00 | H1a bounce | 0,447 | 0,547 | 1,000 |
+| R$0,50 | H1a bounce | 0,546 | 0,547 | 0,527 |
+| R$0,10 | H1a bounce | 0,513 | 0,547 | 0,982 |
+| R$0,05 | H1a bounce | 0,547 | 0,547 | 0,502 |
+| R$1,00 | H1b magnitude | 0,0039 | 0,0046 | 0,998 |
+| R$0,50 | H1b magnitude | 0,0047 | 0,0046 | 0,396 |
+| R$0,10 | H1b magnitude | 0,0050 | 0,0046 | 0,100 |
+| R$0,05 | H1b magnitude | 0,0049 | 0,0046 | 0,161 |
+| **R$0,01 (placebo)** | H1a / H1b | — | — | 0,551 / 0,272 |
+
+Leitura:
+
+- **H1a (reversão):** a taxa de bounce nos níveis redondos **não** supera a de níveis arbitrários — fica igual ou até um pouco *abaixo* da média nula (0,547). Nenhum p < 0,05.
+- **H1b (aceleração):** a magnitude média de continuação nos níveis redondos não difere de forma significativa da nula. Nenhum p < 0,05.
+- **Placebo (R$0,01):** não significativo, como esperado — sinal de que o desenho não está fabricando efeito espúrio.
+- **Robustez:** o resultado nulo se mantém nas variantes de banda (0,00% e 0,02%) e de janela (30 min) — o menor p empírico em qualquer combinação grade × variante ficou em ~0,07, ainda acima de 0,05.
+
+Isso é consistente com o resultado nulo da fase piloto (desenho pré-Osler, ver abaixo) e é uma resposta científica válida: o mecanismo documentado por Osler para pares de moeda de mercados desenvolvidos **não se replica** para o Real neste período. Limitações relevantes: janela amostral curta (~11 meses), cotação de corretora demo (não order flow), e a assimetria natural entre o número de eventos de uma grade real e de um conjunto de controle (limitação herdada do próprio desenho de Osler).
+
 ## Estrutura do repositório
 
 ```
 data/
-  raw/         snapshots brutos M1 puxados do MT5 (versionados)
-  processed/   dados intermediários derivados (não versionados, regeneráveis)
-src/           código de ingestão, definição de eventos, estatística e visualização
-notebooks/     exploração e validação ad-hoc
+  raw/               snapshots brutos M1 puxados do MT5 (versionados)
+  processed/         dados intermediários derivados (não versionados, regeneráveis)
+src/
+  ingest_mt5.py      ingestão do histórico M1 via MetaTrader5
+  round_levels.py    geração da grade de níveis redondos nominais
+  control_levels.py  gerador de níveis de controle aleatórios (Osler 2000)
+  events.py          detecção de toque + classificação bounce/continuação
+  stats.py           teste de p-valor empírico (redondo vs. nula de controle)
+  run_analysis.py    driver ponta a ponta (primário + robustez)
+results/             tabelas de saída do teste confirmatório (versionadas)
+notebooks/           exploração e validação ad-hoc
 ```
 
 ## Entregáveis
