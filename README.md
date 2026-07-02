@@ -2,7 +2,9 @@
 
 Replicação da metodologia de Carol Osler para o efeito de "número redondo" (suporte/resistência psicológico) em câmbio intradiário, aplicada ao par **USD/BRL** — nunca testado antes para o Real, até onde levantamos na literatura.
 
-**Status:** concluído. Resultado **nulo** — não há evidência do efeito de Osler para o USD/BRL neste período. Entregáveis fechados: o [paper](paper/main.pdf) (LaTeX → PDF), a análise reprodutível (`src/`) e a [experiência web](web/) de divulgação. Ver [Status e próximos passos](#status-e-próximos-passos) no fim.
+**Status:** concluído. Resultado **nulo** — não há evidência do efeito de Osler para o USD/BRL neste período. Entregáveis fechados: o [paper](paper/main.pdf) (LaTeX → PDF), a análise reprodutível (`src/`) e a [experiência web](https://hackathon-trainee-fea-dev.github.io/usdbrl-round-numbers/) de divulgação (ao vivo). Ver [Status e próximos passos](#status-e-próximos-passos) no fim.
+
+**🔗 Site ao vivo:** https://hackathon-trainee-fea-dev.github.io/usdbrl-round-numbers/
 
 > **Nota de rigor.** Todos os parâmetros do teste foram fixados **antes** de rodar o confirmatório — não foram ajustados depois de ver resultados —, para evitar p-hacking / sequential testing. As etapas exploratórias que antecederam o desenho final (uma fase pré-Osler e uma versão intermediária do controle) estão registradas em [Transparência metodológica](#transparência-metodológica), apenas como rastro auditável; a resposta do projeto é o resultado confirmatório abaixo.
 
@@ -135,6 +137,7 @@ Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma di
 ```
 Makefile             atalhos reprodutíveis (make help lista os alvos)
 requirements.txt     dependências Python
+.github/workflows/   CI: pages.yml publica web/ no GitHub Pages a cada push
 data/
   raw/               snapshots brutos M1 puxados do MT5 (versionados)
   processed/         dados intermediários derivados (não versionados, regeneráveis)
@@ -165,7 +168,7 @@ figures/             figuras de research (event-study, sanity check)
 
 1. **Paper científico ([`paper/main.pdf`](paper/main.pdf))** — o entregável de rigor, com o desenho pré-registrado acima (testes, p-valores, robustez, event-study, sanity check). Fonte em LaTeX (`paper/main.tex` + `paper/refs.bib`); recompile com `make paper`.
 2. **Análise reprodutível (`src/`)** — o pipeline ponta a ponta que gera os resultados e figuras do paper, com o snapshot de dados versionado para reprodução offline.
-3. **Experiência web imersiva (`web/`)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Um scrollytelling em Canvas 2D vanilla (sem frameworks) com identidade visual própria ("terminal noturno"): seis capítulos que vão da crença popular → um ano de dólar minuto a minuto e seus toques → o teste como "redondo vs. número sorteado" → o que o dólar faz *depois* de encostar (event-study) → o veredito nulo (com as ressalvas). Os números vêm de `web/data.json`, exportado por `src/export_web_data.py` a partir dos mesmos dados e resultados. O conteúdo técnico-estatístico fica de propósito no paper, não na experiência web.
+3. **Experiência web imersiva (`web/`, [ao vivo](https://hackathon-trainee-fea-dev.github.io/usdbrl-round-numbers/))** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Um scrollytelling em Canvas 2D vanilla (sem frameworks) com identidade visual própria ("terminal noturno"): seis capítulos que vão da crença popular → um ano de dólar minuto a minuto e seus toques → o teste como "redondo vs. número sorteado" → o que o dólar faz *depois* de encostar (event-study) → o veredito nulo (com as ressalvas). Os números vêm de `web/data.json`, exportado por `src/export_web_data.py` a partir dos mesmos dados e resultados. O conteúdo técnico-estatístico fica de propósito no paper, não na experiência web.
 
 ## Como rodar
 
@@ -179,6 +182,10 @@ make paper         # recompila paper/main.pdf (precisa de um TeX no PATH)
 ```
 
 Ou, alvo a alvo: `make analysis` (→ `results/confirmatory_results.csv`), `make sanity` (→ `figures/sanity_ptax.png`), `make event-study` (→ `figures/event_study.png`), `make web-data` (→ `web/data.json`). A ingestão do MT5 (`python -m src.ingest_mt5`) exige o terminal MetaTrader5 aberto e logado; como o snapshot já é versionado, ela **não** faz parte do fluxo padrão.
+
+### Deploy da experiência web
+
+A `web/` é 100% estática (HTML/CSS/JS, sem build) e é publicada no **GitHub Pages** a cada push na `main` pelo workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml). Todos os caminhos de assets são relativos, então o site roda tanto na raiz de um domínio quanto sob o subpath do Pages. Para reativar num fork: **Settings → Pages → Source = "GitHub Actions"**.
 
 ## Status e próximos passos
 

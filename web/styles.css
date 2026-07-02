@@ -155,6 +155,12 @@ main{position:relative; z-index:3}
   font-size:12px; line-height:1.6; color:var(--dimmer); max-width:620px; margin-left:auto; margin-right:auto;
   text-align:left; opacity:0}
 .coda span{color:var(--dim)}
+.coda-links{display:flex; gap:22px; flex-wrap:wrap; margin-top:8px; padding-top:14px;
+  border-top:1px solid rgba(124,138,153,.18)}
+.coda-links a{font-family:var(--mono); font-size:12px; letter-spacing:.02em;
+  color:var(--price); text-decoration:none; border-bottom:1px solid transparent;
+  transition:border-color .18s ease, opacity .18s ease}
+.coda-links a:hover{border-bottom-color:var(--price)}
 
 @media (max-width:640px){
   #rail{display:none}
