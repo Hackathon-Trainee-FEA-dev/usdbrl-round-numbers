@@ -4,7 +4,7 @@ Replicação da metodologia de Carol Osler para o efeito de "número redondo" (s
 
 **Status:** concluído. Resultado **nulo** — não há evidência do efeito de Osler para o USD/BRL neste período. Entregáveis fechados: o [paper](paper/main.pdf) (LaTeX → PDF), a análise reprodutível (`src/`) e a [experiência web](web/) de divulgação. Ver [Status e próximos passos](#status-e-próximos-passos) no fim.
 
-> **Este README documenta o desenho antes dos resultados.** Os parâmetros foram travados antes de observar qualquer resultado, para evitar p-hacking / sequential testing. Uma primeira rodada usou um proxy não-literal do controle/teste; após ler o PDF original, o desenho foi **corrigido para a fidelidade literal de Osler** e o resultado nulo se manteve (ver "Teste confirmatório" → nota de integridade). Resultados de uma fase piloto anterior (desenho diferente, descartado) existem só como motivação histórica e **não** devem ser citados como resposta final — ver "Fase piloto" abaixo.
+> **Nota de rigor.** Todos os parâmetros do teste foram fixados **antes** de rodar o confirmatório — não foram ajustados depois de ver resultados —, para evitar p-hacking / sequential testing. As etapas exploratórias que antecederam o desenho final (uma fase pré-Osler e uma versão intermediária do controle) estão registradas em [Transparência metodológica](#transparência-metodológica), apenas como rastro auditável; a resposta do projeto é o resultado confirmatório abaixo.
 
 ## Hipótese
 
@@ -17,7 +17,7 @@ Níveis de preço "redondos" (ex.: R$5,00, R$5,50, R$5,10) funcionam como suport
 
 Réplica direta de **Osler, C. (2000), "Support for Resistance: Technical Analysis and Intraday Exchange Rates", FRBNY Economic Policy Review, Vol. 6, No. 2**, adaptada para os dados disponíveis (M1 real via MT5, não order-flow proprietário).
 
-> **Fonte dos parâmetros — confirmada contra o PDF original.** O desenho foi checado ao pé da letra contra o PDF original do NY Fed (`0007osle.pdf`, FRBNY EPR jul/2000, pp.53-68), obtido via `curl` com User-Agent de navegador depois que o fetch automatizado retornava 403. O procedimento literal (controle de 20 suportes + 20 resistências por dia, teste de sinal binomial mensal, definições de hit/bounce) está descrito abaixo exatamente como no paper, salvo as adaptações inevitáveis ao cenário brasileiro, sempre sinalizadas.
+> **Fonte dos parâmetros.** O desenho foi conferido ao pé da letra contra o artigo original de **Osler (2000)** no *FRBNY Economic Policy Review* (vol. 6, nº 2, pp. 53–68). O procedimento literal (controle de 20 suportes + 20 resistências por dia, teste de sinal binomial mensal, definições de hit/bounce) está reproduzido abaixo exatamente como no artigo, salvo as adaptações inevitáveis ao cenário brasileiro, sempre sinalizadas.
 
 ### Evento unificado (H1a/H1b em um único teste)
 
@@ -48,7 +48,7 @@ Osler restringe a amostra a 9h–16h NY para excluir o overnight ilíquido do fe
 
 ### Granularidade dos níveis redondos
 
-Hierarquia por força decrescente: **R$1,00 / R$0,50 / R$0,10 / R$0,05**, com **R$0,01 como placebo de falsificação** (nível "redondo" fraco demais para ter efeito psicológico esperado — serve de checagem negativa). Definida por análise de poder estatístico real sobre os dados MT5 durante a fase piloto.
+Hierarquia por força decrescente: **R$1,00 / R$0,50 / R$0,10 / R$0,05**, com **R$0,01 como placebo de falsificação** (nível "redondo" fraco demais para ter efeito psicológico esperado — serve de checagem negativa). A hierarquia foi informada por análise de poder estatístico sobre os dados MT5.
 
 ### Teste confirmatório
 
@@ -69,7 +69,7 @@ Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada; reporta-se o p p
 
 `N = 5.000` conjuntos de controle no run primário. Parametrizável em `src/run_analysis.py` (`N_SETS`, `SEED`).
 
-> **Nota de integridade — correção metodológica.** Uma primeira rodada usou um *proxy* não-literal (controle de 1 R + 1 S por dia, N = 2.000, e p-valor de Monte Carlo como teste primário). Após obter e ler o **PDF original**, o desenho foi corrigido para a fidelidade literal descrita acima (controle 20+20/dia, teste de sinal binomial mensal). **O resultado nulo de H1a se manteve** entre o proxy e a versão literal — o que reforça a robustez da conclusão. Esta versão literal é a definitiva.
+> **Nota de integridade — correção metodológica.** Uma primeira rodada usou um *proxy* não-literal (controle de 1 R + 1 S por dia, N = 2.000, e p-valor de Monte Carlo como teste primário). Após conferir o desenho contra o **artigo original de Osler (2000)**, ele foi corrigido para a fidelidade literal descrita acima (controle 20+20/dia, teste de sinal binomial mensal). **O resultado nulo de H1a se manteve** entre o proxy e a versão literal — o que reforça a robustez da conclusão. Esta versão literal é a definitiva.
 
 ## Dados
 
@@ -120,7 +120,7 @@ Leitura:
 
 **Limitação central — baixa potência.** Com apenas 13 meses, `Binomial(13, 0,5)` exige ~10-11 meses com `BP>BA` para p < 0,05; grades grossas (R$1,00) têm ainda menos meses com hits (só 2). O nulo é, portanto, um nulo **sob baixa potência**: ausência de evidência, não evidência forte de ausência. Outras limitações: cotação de corretora demo (não order flow), e a assimetria natural entre o número de eventos de uma grade real e de um conjunto de controle (herdada do desenho de Osler). Ainda assim, a convergência dos dois testes para H1a e o diagnóstico de artefato para H1b tornam a conclusão robusta dentro da amostra disponível.
 
-Isso é consistente com o resultado nulo da fase piloto (desenho pré-Osler, ver abaixo): o mecanismo documentado por Osler para pares de mercados desenvolvidos **não se replica** de forma detectável para o Real neste período.
+O mesmo nulo já havia aparecido em análises exploratórias anteriores, com um desenho diferente (ver [Transparência metodológica](#transparência-metodológica)): o mecanismo documentado por Osler para pares de mercados desenvolvidos **não se replica** de forma detectável para o Real neste período.
 
 ### Corroboração visual — event-study do toque
 
@@ -190,14 +190,13 @@ Ou, alvo a alvo: `make analysis` (→ `results/confirmatory_results.csv`), `make
 - **Order flow real.** Osler explica o efeito pela concentração de ordens *stop*/*take-profit*. Com dados de livro/ordem, dá para testar o *mecanismo* diretamente, não só a sua consequência de preço.
 - **Extensão a outros ativos (stretch goal).** Aplicar o mesmo arcabouço ao Ibovespa/ações brasileiras, onde números redondos (ex.: 100.000 pts) também são folclore de mesa.
 
-## Fase piloto (histórico, não confirmatório)
+## Transparência metodológica
 
-Antes de travar o desenho acima, uma fase exploratória sobre os dados FBS-Demo (~99.823 barras M1) gerou aprendizados que levaram às decisões atuais, mas cujos números **não valem como teste confirmatório** (sequência de testes / risco de p-hacking):
+Para manter o caminho auditável, registramos aqui as etapas exploratórias que **antecederam** o desenho final e que **não** contam como teste confirmatório (foram sequência de testes, com risco de p-hacking). Ficam documentadas apenas como rastro de como o desenho definitivo foi travado, não como resposta do projeto:
 
-- Descoberta e correção de um bug de gap de fim de semana que inflava a contagem de eventos em ~11-12%.
-- Teste binário de bounce (bootstrap simples) e regressão de magnitude com erros-padrão Newey-West, ambos sobre um desenho de grid + offset arbitrário (pré-Osler) — resultado nulo (nenhum p-valor < 0,05) em 8 combinações grid × horizonte.
-
-Esses resultados ficam documentados apenas como motivação para o desenho atual, não como resposta do projeto.
+- **Fase exploratória inicial** sobre os dados FBS-Demo (~99.823 barras M1), com um desenho pré-Osler (grid + offset arbitrário): teste binário de bounce por bootstrap e regressão de magnitude com erros-padrão Newey-West — resultado nulo (nenhum p-valor < 0,05) em 8 combinações grade × horizonte.
+- Nessa fase foi descoberto e corrigido um bug de gap de fim de semana que inflava a contagem de eventos em ~11–12%.
+- A correção do controle *proxy* → literal de Osler está descrita na "Nota de integridade" (seção [Teste confirmatório](#teste-confirmatório)); o resultado nulo se manteve em todas as versões.
 
 ## Referências
 
