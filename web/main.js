@@ -179,58 +179,55 @@ function sceneIntro(t) {
   const auto = clamp((t - 0.4) / 2.6);         // auto-desenha ao carregar
   const rev = Math.max(auto, smooth(app.p));   // e continua com scroll
   ctx.save();
-  ctx.globalAlpha = 0.4;                        // recuado: deixa o título verde respirar
+  ctx.globalAlpha = 0.3;                        // recuado: deixa o título verde respirar
   drawWalls("0.10", 0.05 + app.p * 0.05, false, false);
   drawWorldLine(rev, false);
   ctx.restore();
 }
 
 function sceneBelief(t) {
-  // ilustração da CRENÇA: ricochetes perfeitos e sintéticos numa parede
-  const wallY = H * 0.46;
+  // ilustração calma da CRENÇA, confinada à DIREITA (o texto ocupa a esquerda):
+  // uma bolinha sobe devagar, toca a parede e ricocheteia. Sutil, não protagonista.
+  const x0 = W * 0.55, x1 = W * 0.95, span = x1 - x0;
+  const wallY = H * 0.40;
+  const w = 0.5;                                  // devagar
   ctx.save();
-  // paredes secundárias (fantasma): a crença vale para TODO número redondo
-  ctx.strokeStyle = hexA(COL.wall, .12); ctx.lineWidth = 1; ctx.setLineDash([2, 8]);
-  for (const gy of [-0.22, -0.11, 0.12, 0.24]) {
+  ctx.globalAlpha = 0.6;                          // recuada, não rouba a atenção
+  // paredes-fantasma: a crença vale para TODO número redondo
+  ctx.strokeStyle = hexA(COL.wall, .10); ctx.lineWidth = 1; ctx.setLineDash([2, 9]);
+  for (const gy of [-0.15, 0.15, 0.29]) {
     const y = wallY + H * gy;
-    ctx.beginPath(); ctx.moveTo(W * 0.12, y); ctx.lineTo(W * 0.88, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
   }
   ctx.setLineDash([]);
   // parede em foco
-  ctx.strokeStyle = hexA(COL.wall, .5); ctx.lineWidth = 1.4;
-  ctx.shadowBlur = 16; ctx.shadowColor = COL.wall;
-  ctx.beginPath(); ctx.moveTo(W * 0.12, wallY); ctx.lineTo(W * 0.88, wallY); ctx.stroke();
-  ctx.shadowBlur = 0; ctx.font = MONO; ctx.fillStyle = hexA(COL.wall, .85);
-  ctx.textAlign = "left"; ctx.textBaseline = "bottom";
-  ctx.fillText("todo número redondo — 5,00 · 5,50 · 6,00 …", W * 0.12, wallY - 10);
-  ctx.restore();
-
-  // trajetória idealizada: sobe, toca, ricocheteia
-  const x0 = W * 0.12, x1 = W * 0.88, span = x1 - x0;
-  const amp = H * 0.16, w = 1.5;
-  ctx.save();
-  ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.lineWidth = 1.6;
-  ctx.strokeStyle = COL.price; ctx.shadowBlur = 10; ctx.shadowColor = hexA(COL.price, .5);
+  ctx.strokeStyle = hexA(COL.wall, .4); ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x0, wallY); ctx.lineTo(x1, wallY); ctx.stroke();
+  ctx.font = MONO; ctx.fillStyle = hexA(COL.wall, .6);
+  ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+  ctx.fillText("todo número redondo", x1, wallY - 8);
+  // trajetória idealizada e lenta: sobe, toca, ricocheteia
+  const amp = H * 0.1, nS = 180;
+  ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.lineWidth = 1.4;
+  ctx.strokeStyle = hexA(COL.price, .85);
   ctx.beginPath();
   let hx = 0, hy = 0;
-  const nS = 260;
   for (let k = 0; k <= nS; k++) {
     const u = k / nS;
-    const phase = (u * 7) - t * w;
+    const phase = (u * 5) - t * w;
     const d = amp * Math.abs(Math.sin(phase));   // distância abaixo da parede
     const x = x0 + u * span, y = wallY + d;
     if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     hx = x; hy = y;
   }
   ctx.stroke();
-  // marcador na cabeça
-  ctx.fillStyle = COL.price; ctx.shadowBlur = 20; ctx.shadowColor = COL.price;
-  ctx.beginPath(); ctx.arc(hx, hy, 3.6, 0, 7); ctx.fill();
+  ctx.fillStyle = COL.price;
+  ctx.beginPath(); ctx.arc(hx, hy, 3, 0, 7); ctx.fill();
   ctx.restore();
 
-  // flash de "toque" quando encosta
-  const tp = Math.abs(Math.sin(7 - t * w));
-  if (tp < 0.04) burst(hx, wallY, COL.wall, 4, 1.3);
+  // flash discreto de "toque" quando encosta
+  const tp = Math.abs(Math.sin(5 - t * w));
+  if (tp < 0.03) burst(hx, wallY, COL.wall, 2, 1.0);
 }
 
 function sceneData() {
@@ -273,7 +270,7 @@ const ES = [
 ];
 function sceneRicochet() {
   const es = app.data.event_study;
-  const x0 = W * 0.16, x1 = W * 0.84, y0 = H * 0.38, y1 = H * 0.78;
+  const x0 = W * 0.16, x1 = W * 0.84, y0 = H * 0.50, y1 = H * 0.85;
   const kMin = -10, kMax = 30, vMin = -8, vMax = 3;
   const px = (k) => x0 + ((k - kMin) / (kMax - kMin)) * (x1 - x0);
   const py = (v) => y1 - ((v - vMin) / (vMax - vMin)) * (y1 - y0);
@@ -287,13 +284,13 @@ function sceneRicochet() {
   ctx.setLineDash([]);
   ctx.font = MONO; ctx.fillStyle = hexA(COL.dim, .9); ctx.textAlign = "left"; ctx.textBaseline = "middle";
   ctx.fillText("0 bps", x1 + 8, py(0));
-  // marcador do toque k=0
+  // marcador do toque k=0 (rótulo embaixo, longe do título)
   ctx.strokeStyle = hexA(COL.danger, .5); ctx.beginPath(); ctx.moveTo(px(0), y0 - 6); ctx.lineTo(px(0), y1 + 6); ctx.stroke();
-  ctx.fillStyle = hexA(COL.danger, .9); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-  ctx.fillText("toque (k=0)", px(0), y0 - 12);
   // rótulos de eixo x
-  ctx.fillStyle = hexA(COL.dim, .7); ctx.textBaseline = "top";
-  for (const kk of [-10, 0, 10, 20, 30]) ctx.fillText((kk > 0 ? "+" : "") + kk + " min", px(kk), y1 + 12);
+  ctx.fillStyle = hexA(COL.dim, .7); ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (const kk of [-10, 10, 20, 30]) ctx.fillText((kk > 0 ? "+" : "") + kk + " min", px(kk), y1 + 12);
+  ctx.fillStyle = hexA(COL.danger, .95);
+  ctx.fillText("toque (k=0)", px(0), y1 + 12);
   ctx.restore();
 
   // bandas ±se + linhas
@@ -342,8 +339,11 @@ function sceneVerdict() {
     }
     app.verdictFired = true;
   }
-  // a linha atravessa reto, cheia e brilhante
-  drawWorldLine(1);
+  // a linha atravessa reto — recuada, para o título verde ficar legível por cima
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  drawWorldLine(1, false);
+  ctx.restore();
   fade(ui.coda, (app.p > 0.3 ? 1 : 0) * app.edge);
 }
 
@@ -441,6 +441,13 @@ function buildRail() {
   if (cr) cr.textContent = `${app.data.meta.date_start} → ${app.data.meta.date_end}`;
   buildRail();
   computeLayout();
-  smoothY = window.scrollY || 0;
+  // deep-link opcional: ?goto=<cena> pula para o capítulo (útil para revisão)
+  const goto = new URLSearchParams(location.search).get("goto");
+  if (goto) {
+    const L = layout.find((l) => l.scene === goto);
+    if (L) { const y = L.start + L.len * 0.5; window.scrollTo(0, y); smoothY = y; }
+  } else {
+    smoothY = window.scrollY || 0;
+  }
   requestAnimationFrame(frame);
 })();
