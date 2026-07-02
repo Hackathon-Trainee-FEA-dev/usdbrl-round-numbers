@@ -126,7 +126,7 @@ Além do teste confirmatório, um *event-study* alinha cada toque de nível em `
 
 ![Event-study do toque em nível](figures/event_study.png)
 
-Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma direta: pós-toque, os retornos assinados ficam próximos de zero e as curvas dos níveis redondos **coincidem com a banda de controle** de Osler — nenhum sinal de reversão sistemática. O gráfico é leitura visual do resultado, não substitui o teste (a viz usa `N = 25` conjuntos de controle *pooled*, suficiente para uma média suave; o teste confirmatório usa `N = 5.000`). Reproduzível com `python -m src.event_study`; a tabela `média ± SE` por passo e grupo fica em [`results/event_study_paths.csv`](results/event_study_paths.csv) (reaproveitável no dashboard).
+Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma direta: pós-toque, os retornos assinados ficam próximos de zero e as curvas dos níveis redondos **coincidem com a banda de controle** de Osler — nenhum sinal de reversão sistemática. O gráfico é leitura visual do resultado, não substitui o teste (a viz usa `N = 25` conjuntos de controle *pooled*, suficiente para uma média suave; o teste confirmatório usa `N = 5.000`). Reproduzível com `python -m src.event_study`; a tabela `média ± SE` por passo e grupo fica em [`results/event_study_paths.csv`](results/event_study_paths.csv) (reaproveitável na experiência web).
 
 ## Estrutura do repositório
 
@@ -143,8 +143,12 @@ src/
   run_analysis.py    driver ponta a ponta (primário + robustez)
   event_study.py     event-study assinado do toque (redondo vs. controle) → figura + CSV
   sanity_ptax.py     sanity check da fonte: MT5 vs. PTAX oficial do BCB (match por instante)
-dashboard/
-  app.py             dashboard interativo (Streamlit) — camada de comunicação leiga
+  export_web_data.py exporta o data.json da experiência web a partir dos dados brutos
+web/                 experiência web imersiva (scrollytelling, Canvas 2D vanilla)
+  index.html         estrutura dos capítulos
+  styles.css         identidade visual "terminal noturno"
+  main.js            creative coding: linha de preço, paredes, event-study, scroll suave
+  data.json          dados pré-computados servidos à página
 results/             tabelas de saída do teste confirmatório (versionadas)
 figures/             figuras de research (event-study, sanity check)
 notebooks/           exploração e validação ad-hoc
@@ -153,11 +157,11 @@ notebooks/           exploração e validação ad-hoc
 ## Entregáveis
 
 1. **Paper/análise** com o desenho pré-registrado acima (rigor estatístico: testes, p-valores, robustez).
-2. **Dashboard interativo (Streamlit)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Reaproveita os mesmos módulos de `src/` e os CSVs de resultado. Cinco telas: a crença popular → explorar o preço e os toques → o teste explicado como "redondo vs. número sorteado" → o que o dólar faz depois de encostar → o veredito (com as ressalvas). O conteúdo técnico-estatístico fica de propósito no paper, não no dashboard.
+2. **Experiência web imersiva (`web/`)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Um scrollytelling em Canvas 2D vanilla (sem frameworks) com identidade visual própria ("terminal noturno"): seis capítulos que vão da crença popular → um ano de dólar minuto a minuto e seus toques → o teste como "redondo vs. número sorteado" → o que o dólar faz *depois* de encostar (event-study) → o veredito nulo (com as ressalvas). Os números vêm de `web/data.json`, exportado por `src/export_web_data.py` a partir dos mesmos dados e resultados. O conteúdo técnico-estatístico fica de propósito no paper, não na experiência web.
 
 ```bash
-pip install -r requirements.txt
-streamlit run dashboard/app.py    # a partir da raiz do repositório
+python -m src.export_web_data        # (re)gera web/data.json a partir dos dados brutos
+python -m http.server 4321 --directory web   # abre em http://localhost:4321
 ```
 
 ## Fase piloto (histórico, não confirmatório)
