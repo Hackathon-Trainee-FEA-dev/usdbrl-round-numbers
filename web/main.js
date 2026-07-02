@@ -20,7 +20,10 @@ const ctx = canvas.getContext("2d");
 let W = 0, H = 0, DPR = 1;
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
-  W = window.innerWidth; H = window.innerHeight;
+  // largura do conteúdo (SEM a barra de rolagem) para o canvas centralizar
+  // no mesmo eixo que o texto do DOM — senão os gráficos ficam ~scrollbar/2 à direita
+  W = document.documentElement.clientWidth; H = window.innerHeight;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
   canvas.width = Math.floor(W * DPR);
   canvas.height = Math.floor(H * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
