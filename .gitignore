@@ -15,9 +15,10 @@ env/
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE / tooling
 .vscode/
 .idea/
+.claude/
 
 # Processed/intermediate data (regenerable from data/raw + src/)
 # Raw MT5 snapshots ARE committed on purpose for reproducibility

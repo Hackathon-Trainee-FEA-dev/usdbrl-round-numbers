@@ -2,6 +2,8 @@
 
 Replicação da metodologia de Carol Osler para o efeito de "número redondo" (suporte/resistência psicológico) em câmbio intradiário, aplicada ao par **USD/BRL** — nunca testado antes para o Real, até onde levantamos na literatura.
 
+**Status:** concluído. Resultado **nulo** — não há evidência do efeito de Osler para o USD/BRL neste período. Entregáveis fechados: o [paper](paper/main.pdf) (LaTeX → PDF), a análise reprodutível (`src/`) e a [experiência web](web/) de divulgação. Ver [Status e próximos passos](#status-e-próximos-passos) no fim.
+
 > **Este README documenta o desenho antes dos resultados.** Os parâmetros foram travados antes de observar qualquer resultado, para evitar p-hacking / sequential testing. Uma primeira rodada usou um proxy não-literal do controle/teste; após ler o PDF original, o desenho foi **corrigido para a fidelidade literal de Osler** e o resultado nulo se manteve (ver "Teste confirmatório" → nota de integridade). Resultados de uma fase piloto anterior (desenho diferente, descartado) existem só como motivação histórica e **não** devem ser citados como resposta final — ver "Fase piloto" abaixo.
 
 ## Hipótese
@@ -71,8 +73,8 @@ Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada; reporta-se o p p
 
 ## Dados
 
-- **Fonte primária:** MetaTrader5, símbolo `USDBRL`, conta demo **FBS-Demo**, M1 real (não agregado), ~336 dias corridos (2025-07-30 até hoje), 224 dias distintos de pregão.
-- **Robustez out-of-sample:** conta demo **Tickmill-Demo** (corretora diferente, mesmo desenho).
+- **Fonte primária:** MetaTrader5, símbolo `USDBRL`, conta demo **FBS-Demo**, M1 real (não agregado), de **2025-07-30 a 2026-07-01** (336 dias corridos), 224 dias distintos de pregão.
+- **Robustez out-of-sample (planejada):** repetir o mesmo desenho sobre outra corretora demo (ex.: **Tickmill-Demo**) para checar se o nulo é do mercado ou do feed — ver [próximos passos](#status-e-próximos-passos).
 - **Sessão:** símbolo *onshore* que só cota o pregão brasileiro; a análise usa a janela consistente **[15:30, 23:00)** do timestamp do servidor (98.694 barras). Ver "Sessão de negociação" acima.
 - **PTAX diário (BCB):** taxa oficial de referência do Banco Central, usada apenas como checagem de sanidade da fonte (ver abaixo), não como fonte intradiária.
 - Ver detalhes completos de todas as fontes avaliadas e descartadas (HistData, Dukascopy, TradingView, Bloomberg) na documentação interna do projeto.
@@ -131,10 +133,12 @@ Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma di
 ## Estrutura do repositório
 
 ```
+Makefile             atalhos reprodutíveis (make help lista os alvos)
+requirements.txt     dependências Python
 data/
   raw/               snapshots brutos M1 puxados do MT5 (versionados)
   processed/         dados intermediários derivados (não versionados, regeneráveis)
-src/
+src/                 pacote de análise (rodar com python -m src.<módulo>)
   ingest_mt5.py      ingestão do histórico M1 via MetaTrader5
   round_levels.py    geração da grade de níveis redondos nominais
   control_levels.py  gerador de níveis de controle (20 R + 20 S por dia, Osler 2000)
@@ -144,6 +148,10 @@ src/
   event_study.py     event-study assinado do toque (redondo vs. controle) → figura + CSV
   sanity_ptax.py     sanity check da fonte: MT5 vs. PTAX oficial do BCB (match por instante)
   export_web_data.py exporta o data.json da experiência web a partir dos dados brutos
+paper/               paper científico (o entregável de rigor)
+  main.tex           fonte LaTeX
+  refs.bib           bibliografia
+  main.pdf           PDF compilado (versionado)
 web/                 experiência web imersiva (scrollytelling, Canvas 2D vanilla)
   index.html         estrutura dos capítulos
   styles.css         identidade visual "terminal noturno"
@@ -151,18 +159,36 @@ web/                 experiência web imersiva (scrollytelling, Canvas 2D vanill
   data.json          dados pré-computados servidos à página
 results/             tabelas de saída do teste confirmatório (versionadas)
 figures/             figuras de research (event-study, sanity check)
-notebooks/           exploração e validação ad-hoc
 ```
 
 ## Entregáveis
 
-1. **Paper/análise** com o desenho pré-registrado acima (rigor estatístico: testes, p-valores, robustez).
-2. **Experiência web imersiva (`web/`)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Um scrollytelling em Canvas 2D vanilla (sem frameworks) com identidade visual própria ("terminal noturno"): seis capítulos que vão da crença popular → um ano de dólar minuto a minuto e seus toques → o teste como "redondo vs. número sorteado" → o que o dólar faz *depois* de encostar (event-study) → o veredito nulo (com as ressalvas). Os números vêm de `web/data.json`, exportado por `src/export_web_data.py` a partir dos mesmos dados e resultados. O conteúdo técnico-estatístico fica de propósito no paper, não na experiência web.
+1. **Paper científico ([`paper/main.pdf`](paper/main.pdf))** — o entregável de rigor, com o desenho pré-registrado acima (testes, p-valores, robustez, event-study, sanity check). Fonte em LaTeX (`paper/main.tex` + `paper/refs.bib`); recompile com `make paper`.
+2. **Análise reprodutível (`src/`)** — o pipeline ponta a ponta que gera os resultados e figuras do paper, com o snapshot de dados versionado para reprodução offline.
+3. **Experiência web imersiva (`web/`)** — a *camada de comunicação*, pensada para um público leigo entender a história sozinho, sem jargão. Um scrollytelling em Canvas 2D vanilla (sem frameworks) com identidade visual própria ("terminal noturno"): seis capítulos que vão da crença popular → um ano de dólar minuto a minuto e seus toques → o teste como "redondo vs. número sorteado" → o que o dólar faz *depois* de encostar (event-study) → o veredito nulo (com as ressalvas). Os números vêm de `web/data.json`, exportado por `src/export_web_data.py` a partir dos mesmos dados e resultados. O conteúdo técnico-estatístico fica de propósito no paper, não na experiência web.
+
+## Como rodar
+
+Todos os atalhos estão no `Makefile` (`make help` lista os alvos). Sem `make` (Windows), copie o comando equivalente.
 
 ```bash
-python -m src.export_web_data        # (re)gera web/data.json a partir dos dados brutos
-python -m http.server 4321 --directory web   # abre em http://localhost:4321
+make install       # instala as dependências (pandas, numpy, statsmodels, MetaTrader5)
+make research      # roda tudo: teste confirmatório + sanity + event-study + web-data
+make web           # serve a experiência web em http://localhost:4321
+make paper         # recompila paper/main.pdf (precisa de um TeX no PATH)
 ```
+
+Ou, alvo a alvo: `make analysis` (→ `results/confirmatory_results.csv`), `make sanity` (→ `figures/sanity_ptax.png`), `make event-study` (→ `figures/event_study.png`), `make web-data` (→ `web/data.json`). A ingestão do MT5 (`python -m src.ingest_mt5`) exige o terminal MetaTrader5 aberto e logado; como o snapshot já é versionado, ela **não** faz parte do fluxo padrão.
+
+## Status e próximos passos
+
+**Status: concluído.** As perguntas do projeto foram respondidas com os três entregáveis fechados (paper, análise, web). A conclusão é um **nulo sob baixa potência**: dentro desta amostra, o efeito de Osler não aparece para o USD/BRL, mas a amostra curta e a cotação demo impedem afirmar que ele *não existe*. As direções abaixo atacam exatamente essas ressalvas — nenhuma é necessária para a conclusão atual, mas todas a fortaleceriam.
+
+- **Amostra mais longa (maior potência).** O gargalo é o teste de sinal com 13 meses (precisa de ~10–11 favoráveis para `p<0,05`). Estender para vários anos de M1 daria potência real, sobretudo nas grades grossas (R$1,00 tem só 2 meses com toques).
+- **Fonte de mercado real (sem o prêmio demo).** Repetir sobre um feed sem o markup de ~72 bps (dados reais de corretora ou provedor institucional) alinharia os níveis redondos finos aos do mercado, removendo o caveat que hoje só deixa a grade R$1,00 plenamente confiável.
+- **Robustez out-of-sample entre corretoras.** Rodar o mesmo desenho em outra demo (ex.: Tickmill-Demo) separa o que é do mercado do que é do feed.
+- **Order flow real.** Osler explica o efeito pela concentração de ordens *stop*/*take-profit*. Com dados de livro/ordem, dá para testar o *mecanismo* diretamente, não só a sua consequência de preço.
+- **Extensão a outros ativos (stretch goal).** Aplicar o mesmo arcabouço ao Ibovespa/ações brasileiras, onde números redondos (ex.: 100.000 pts) também são folclore de mesa.
 
 ## Fase piloto (histórico, não confirmatório)
 
