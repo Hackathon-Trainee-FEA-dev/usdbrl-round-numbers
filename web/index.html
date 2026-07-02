@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A Parede Invisível — USD/BRL e os números redondos</title>
+<meta name="description" content="Uma investigação visual: o dólar respeita paredes psicológicas em números redondos? Réplica do estudo de Carol Osler (2000) para o Real." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+<div id="grain"></div>
+
+<!-- HUD -->
+<header id="hud">
+  <div class="hud-left">
+    <span class="dot"></span>
+    <span class="mono">USD/BRL · M1 · réplica Osler (2000)</span>
+  </div>
+  <nav id="rail" aria-label="capítulos"></nav>
+  <div class="hud-right mono"><span id="scene-label">A parede invisível</span></div>
+</header>
+
+<div id="scroll-hint" class="mono">role para descer <span>↓</span></div>
+
+<main>
+
+  <!-- 1 · INTRO -->
+  <section class="beat" data-scene="intro" data-label="A parede invisível" style="height:220vh">
+    <div class="sticky">
+      <div class="copy c-intro">
+        <p class="kicker mono">superstição vs. física do mercado</p>
+        <h1 class="display">A parede<br><span class="accent">invisível</span></h1>
+        <p class="lede">O mercado acredita que o preço <em>respeita</em> números redondos —
+          que existe uma parede invisível em cada nível "certo" (<span class="num">R$&nbsp;5,00</span>,
+          <span class="num">R$&nbsp;5,50</span>, <span class="num">R$&nbsp;6,00</span>…) que empurra o dólar de volta.</p>
+        <p class="lede dim">Nós testamos essa crença, minuto a minuto, por um ano inteiro.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · BELIEF -->
+  <section class="beat" data-scene="belief" data-label="A crença" style="height:260vh">
+    <div class="sticky">
+      <div class="copy c-left">
+        <p class="kicker mono">a crença</p>
+        <h2 class="display sm">O ricochete<br>que todos esperam</h2>
+        <p class="lede">Na cabeça do operador, o preço sobe, <span class="accent-b">toca a parede</span>
+          num número redondo qualquer… e ricocheteia de volta. E não é só folclore de mesa: em
+          <span class="accent-b">moedas fortes</span>, <span class="accent-b">Osler (2000)</span>
+          mostrou que os números redondos realmente seguram o preço. A parede existe — lá.</p>
+        <p class="lede dim">Mas ninguém nunca tinha testado no real. É uma crença <em>importada</em>.</p>
+        <div class="currencies mono">
+          <span class="cur ok">EUR/USD&nbsp;✓</span>
+          <span class="cur ok">USD/JPY&nbsp;✓</span>
+          <span class="cur ok">GBP/USD&nbsp;✓</span>
+          <span class="cur test">USD/BRL&nbsp;?</span>
+        </div>
+        <p class="cur-note">✓ <b>parede comprovada</b> em moedas desenvolvidas (Osler, 2000) &nbsp;·&nbsp; ? nunca testada no real</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · DATA / O TOQUE -->
+  <section class="beat" data-scene="data" data-label="O toque" style="height:420vh">
+    <div class="sticky">
+      <div class="copy c-top">
+        <p class="kicker mono">o toque</p>
+        <h2 class="display sm">Um ano de dólar,<br>minuto a minuto</h2>
+      </div>
+      <div class="counters">
+        <div class="counter"><b id="ct-min">0</b><span class="mono">minutos observados</span></div>
+        <div class="counter"><b id="ct-touch">0</b><span class="mono">toques em níveis redondos</span></div>
+        <div class="counter"><b id="ct-days">0</b><span class="mono">pregões</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · EXPERIMENT / O SORTEIO -->
+  <section class="beat" data-scene="experiment" data-label="O sorteio" style="height:360vh">
+    <div class="sticky">
+      <div class="copy c-top">
+        <p class="kicker mono">o sorteio</p>
+        <h2 class="display sm">Redondo contra o acaso</h2>
+        <p class="lede narrow">Se a parede existe, o preço deveria ricochetear <em>mais</em> num número
+          redondo do que num nível qualquer, sorteado ao acaso. Comparamos os dois.</p>
+      </div>
+      <div class="versus">
+        <div class="vs-col vs-round">
+          <p class="vs-cap mono">níveis redondos</p>
+          <b class="vs-num" id="vs-round">0%</b>
+          <p class="vs-sub mono">ricochetes</p>
+        </div>
+        <div class="vs-mid mono">vs</div>
+        <div class="vs-col vs-rand">
+          <p class="vs-cap mono">níveis sorteados</p>
+          <b class="vs-num" id="vs-rand">0%</b>
+          <p class="vs-sub mono">ricochetes</p>
+        </div>
+      </div>
+      <p class="verdict-line" id="exp-verdict">praticamente idênticos.</p>
+    </div>
+  </section>
+
+  <!-- 5 · RICOCHET / O RICOCHETE -->
+  <section class="beat" data-scene="ricochet" data-label="O ricochete" style="height:420vh">
+    <div class="sticky">
+      <div class="copy c-top">
+        <p class="kicker mono">o ricochete</p>
+        <h2 class="display sm">O que acontece <em>depois</em> do toque</h2>
+        <p class="lede narrow">Alinhamos milhares de toques no instante do contato (k=0) e medimos a
+          trajetória média. Se houvesse parede, a linha voltaria. Ela não volta.</p>
+      </div>
+      <div class="legend mono" id="es-legend">
+        <span class="lg lg-ctrl">nível sorteado (controle)</span>
+        <span class="lg lg-050">R$&nbsp;0,50</span>
+        <span class="lg lg-100">R$&nbsp;1,00</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · VERDICT / O VEREDITO -->
+  <section class="beat" data-scene="verdict" data-label="O veredito" style="height:300vh">
+    <div class="sticky">
+      <div class="copy c-center">
+        <p class="kicker mono">o veredito</p>
+        <h2 class="display">Não há parede.<br><span class="accent">Só superstição.</span></h2>
+        <p class="lede">Para o USD/BRL, os números redondos não seguram nada. O preço passa reto —
+          por R$&nbsp;5,00, por R$&nbsp;5,50, como por qualquer outro nível.
+          <span class="dim">O efeito que existe no euro e no iene simplesmente não aparece aqui.</span></p>
+        <div class="coda mono">
+          <p>* Feed intradiário M1 (corretora demo), sessão líquida 15:30–23:00. Um ano: <span id="coda-range"></span>.</p>
+          <p>* Desenho fiel a Osler (2000): teste de sinal mensal, controle de 20 níveis por lado/dia, placebo em R$&nbsp;0,01.</p>
+          <p>* Resultado nulo em todas as grades. As análises formais estão no paper.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
