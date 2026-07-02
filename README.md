@@ -79,7 +79,7 @@ Cada grade real (R$1,00 / R$0,50 / R$0,10 / R$0,05) é testada; reporta-se o p p
 - **Robustez out-of-sample (planejada):** repetir o mesmo desenho sobre outra corretora demo (ex.: **Tickmill-Demo**) para checar se o nulo é do mercado ou do feed — ver [próximos passos](#status-e-próximos-passos).
 - **Sessão:** símbolo *onshore* que só cota o pregão brasileiro; a análise usa a janela consistente **[15:30, 23:00)** do timestamp do servidor (98.694 barras). Ver "Sessão de negociação" acima.
 - **PTAX diário (BCB):** taxa oficial de referência do Banco Central, usada apenas como checagem de sanidade da fonte (ver abaixo), não como fonte intradiária.
-- Ver detalhes completos de todas as fontes avaliadas e descartadas (HistData, Dukascopy, TradingView, Bloomberg) na documentação interna do projeto.
+- Ver detalhes completos de todas as fontes avaliadas e descartadas (HistData, Dukascopy, TradingView, Bloomberg) em [`docs/data-sources.md`](docs/data-sources.md).
 
 ### Sanity check da fonte (MT5 vs. PTAX oficial)
 
@@ -138,6 +138,7 @@ Os dois painéis (caminho completo + zoom pós-toque) mostram o nulo de forma di
 Makefile             atalhos reprodutíveis (make help lista os alvos)
 requirements.txt     dependências Python
 .github/workflows/   CI: pages.yml publica web/ no GitHub Pages a cada push
+docs/                documentação de apoio (ex.: fontes de dados avaliadas)
 data/
   raw/               snapshots brutos M1 puxados do MT5 (versionados)
   processed/         dados intermediários derivados (não versionados, regeneráveis)
