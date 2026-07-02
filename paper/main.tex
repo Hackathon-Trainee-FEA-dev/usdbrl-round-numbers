@@ -1,0 +1,297 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{siunitx}
+\usepackage[round]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../figures/}}
+\sisetup{output-decimal-marker={,},group-separator={.},detect-weight=true}
+
+\title{\textbf{A parede invisível não atravessa a fronteira:}\\
+teste do efeito de número redondo de Osler (2000) para o USD/BRL}
+\author{Caio Vieira\\ \small FEA.dev --- Hackathon Trainee}
+\date{Julho de 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Números de preço ``redondos'' são amplamente tidos, na prática de mesa, como suporte e
+resistência psicológicos --- uma \emph{parede invisível} que faria o preço reverter ao ser
+tocada. \citet{osler2000} documentou esse efeito de forma robusta para pares de câmbio de
+mercados desenvolvidos. Testamos se o mesmo mecanismo existe para o par
+USD/BRL --- até onde levantamos, nunca avaliado para o Real --- replicando o desenho literal
+de Osler sobre um ano de cotações intradiárias de um minuto (M1): banda de toque de
+\SI{0.01}{\percent}, janela de classificação de 15 minutos, grupo de controle de 20
+resistências e 20 suportes aleatórios por pregão, e teste de sinal binomial mensal.
+Sobre \num{98694} barras M1 (2025-07-30 a 2026-07-01, \num{224} pregões, \num{13} meses),
+não encontramos evidência do efeito: a frequência de reversão nos níveis redondos
+($\approx \SI{55}{\percent}$) é estatisticamente indistinguível --- e por vezes levemente
+inferior --- à de níveis arbitrários, em todas as grades testadas
+(R\$1,00 / R\$0,50 / R\$0,10 / R\$0,05) e sob todas as variantes de robustez. Um
+\emph{event-study} do retorno assinado pós-toque corrobora visualmente o nulo. A extensão de
+aceleração pós-rompimento (H1b) só aparece em um teste agregado de Monte Carlo que
+\emph{também} acende no placebo de falsificação (R\$0,01), sendo portanto diagnosticada como
+artefato de agregação, não ancoragem. O resultado é um nulo sob baixa potência: consistente
+com a ausência do mecanismo de Osler para o Real neste período, com as ressalvas de amostra
+curta e cotação de corretora demo.
+\end{abstract}
+
+\section{Introdução}
+
+Há uma crença difundida entre operadores de câmbio de que o preço ``respeita'' números
+redondos: ao se aproximar de um nível como R\$5,00 ou R\$5,50, ele tenderia a reverter, como
+se houvesse ali uma barreira. Essa intuição tem lastro empírico em mercados desenvolvidos.
+\citet{osler2000}, usando o livro de ordens intradiário, mostrou que taxas de câmbio de fato
+revertem com mais frequência ao tocar números redondos, e ligou o fenômeno à concentração de
+ordens \emph{stop-loss} e \emph{take-profit} nesses níveis --- mecanismo depois detalhado em
+\citet{osler2003}. A hipótese não é folclore: é um efeito medido e explicado.
+
+O que não sabemos é se ele \emph{atravessa a fronteira}. Toda a evidência de Osler vem de
+pares líquidos de moedas fortes (dólar, iene, libra, marco). O Real é uma moeda emergente,
+com microestrutura, liquidez e composição de participantes distintas. Aplicar a crença ao
+USD/BRL é, na prática, importá-la sem teste. Este trabalho faz esse teste, replicando o
+desenho de \citet{osler2000} da forma mais literal que os dados disponíveis permitem, e
+pré-registrando todos os parâmetros antes de observar resultados, para evitar
+\emph{p-hacking}.
+
+Formulamos duas hipóteses direcionais:
+\begin{itemize}
+  \item \textbf{H1a --- Reversão (\emph{bounce}).} Ao tocar um nível redondo, o preço reverte
+  com mais frequência do que ao tocar um nível de controle não-redondo. Esta é a réplica
+  literal de Osler.
+  \item \textbf{H1b --- Aceleração.} Quando o preço rompe um nível redondo (não reverte), o
+  movimento subsequente é maior do que após romper um nível de controle. Osler declara
+  explicitamente não testar isso (\citeauthor{osler2000} escreve que a hipótese de que os
+  preços passam a tender após o rompimento ``is not examined here''); entramos com H1b como
+  extensão, ancorada na literatura de regras de rompimento e filtro
+  \citep{alexander1961,brock1992,curcio1997}.
+\end{itemize}
+
+\section{Dados}
+
+\paragraph{Fonte primária.} Histórico M1 (um minuto, não agregado) do símbolo \texttt{USDBRL}
+via MetaTrader~5, conta demo FBS-Demo, de 2025-07-30 até 2026-07-01. O símbolo é
+\emph{onshore} e só cota durante o pregão brasileiro, de modo que a restrição de sessão já
+vem embutida na fonte. Aplicamos ainda o filtro de sessão consistente $[15{:}30, 23{:}00)$ do
+timestamp do servidor --- o equivalente brasileiro ao recorte 9h--16h de Nova York que Osler
+usa para excluir o \emph{overnight} ilíquido --- resultando em \num{98694} barras ao longo de
+\num{224} pregões distintos (\num{13} meses-calendário). O preço variou entre
+R\$4,9232 e R\$5,6707 no período.
+
+\paragraph{Sanity check da fonte (MT5 vs.\ PTAX oficial).} Para confirmar que o feed de
+corretora demo é um proxy legítimo do USD/BRL à vista, casamos o \texttt{close} M1 com a PTAX
+de venda de fechamento do Banco Central (API Olinda) no mesmo instante --- a PTAX é apurada
+$\approx$13h de Brasília, dentro da nossa sessão --- por \emph{nearest match} com tolerância
+de 5 minutos, em 223 dias (Figura~\ref{fig:sanity}). A correlação de nível é \num{0.998}: o
+feed reproduz cada oscilação da taxa oficial, sem erro de escala, unidade ou inversão.
+Detectamos, porém, um \emph{prêmio de nível} estável de $\approx +\SI{72}{bps}$
+($\approx \SI{0.7}{\percent}$; mediana \SI{+71.8}{bps}, sem deriva secular), típico de cotação
+sintética de conta demo. A consequência metodológica é que os níveis são ``redondos'' no
+preço do feed, e o \emph{offset} os desloca frente aos redondos do mercado real: desprezível
+para a grade grossa (R\$1,00 $\approx$ \SI{18}{\percent} de espaçamento), mas uma fração
+não-trivial das grades finas. \emph{O nulo da grade R\$1,00 é, portanto, o mais confiável.}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\textwidth]{sanity_ptax.png}
+  \caption{Validação da fonte: \texttt{close} M1 do MT5 (FBS-Demo) contra a PTAX de
+  fechamento do BCB no mesmo instante. Correlação de nível \num{0.998}; prêmio estável de
+  $\approx\SI{72}{bps}$ sem deriva.}
+  \label{fig:sanity}
+\end{figure}
+
+\section{Metodologia}
+\label{sec:metodo}
+
+O desenho é uma réplica direta de \citet{osler2000}, adaptada a dados M1 públicos (não
+\emph{order flow} proprietário). Toda escolha foi travada antes dos resultados.
+
+\subsection{Evento unificado}
+
+Um único scan classifica cada toque, atendendo H1a e H1b ao mesmo tempo:
+\begin{enumerate}
+  \item \textbf{Banda de toque.} O preço ``toca'' um nível quando chega a \SI{0.01}{\percent}
+  de distância dele (percentual, escalado pelo range observado). Robustez: \SI{0}{\percent} e
+  \SI{0.02}{\percent} --- os mesmos valores de Osler.
+  \item \textbf{Janela de classificação.} 15 minutos após o toque (horizonte primário de
+  Osler); 30 minutos como robustez.
+  \item \textbf{Classificação.} Se o preço voltou ao lado original do nível dentro da janela,
+  \emph{bounce} (evidência para H1a); se permaneceu do outro lado, \emph{continuação}
+  (evidência para H1b, com magnitude igual ao afastamento do nível).
+\end{enumerate}
+
+\subsection{Grupo de controle (o algoritmo de Osler)}
+
+O controle não é \emph{offset} de grade nem \emph{bootstrap} de blocos: é o algoritmo de
+níveis aleatórios do próprio Osler. Para cada pregão geram-se 20 resistências e 20 suportes
+--- o número exato do paper:
+\begin{align}
+  R_i &= \text{Abertura}_{\text{dia}} + b_i \times \text{range}_{\text{mês}}, &
+  b_i &\sim \mathcal{U}(0,1), \\
+  S_i &= \text{Abertura}_{\text{dia}} - a_i \times \text{range}_{\text{mês}}, &
+  a_i &\sim \mathcal{U}(0,1), \quad i = 1,\dots,20,
+\end{align}
+onde $\text{range}_{\text{mês}}$ é o maior \emph{gap} absoluto entre a abertura e as
+máximas/mínimas intradiárias do mês. Os níveis artificiais são arredondados à precisão de
+cotação (4 casas decimais para o USD/BRL). Compara-se a taxa de \emph{bounce}/continuação dos
+níveis redondos reais contra a desses níveis artificiais. Usamos $N = \num{5000}$ conjuntos de
+controle no run primário (Osler usa \num{10000}; a estatística de referência é uma média
+sobre os conjuntos, que converge bem antes disso). A geração é feita por dia, sob demanda,
+para não materializar os $\approx$45 milhões de níveis em memória.
+
+\subsection{Granularidade dos níveis}
+
+Hierarquia por força decrescente: \textbf{R\$1,00 / R\$0,50 / R\$0,10 / R\$0,05}, com
+\textbf{R\$0,01 como placebo de falsificação} --- um nível ``redondo'' fraco demais para ter
+efeito psicológico, que serve de checagem negativa: se acender, é sinal de artefato, não de
+ancoragem.
+
+\subsection{Teste confirmatório}
+
+\paragraph{Primário --- sinal binomial mensal (o teste literal de Osler).} Osler não usa
+percentil de Monte Carlo. O procedimento é: (i) para cada mês, calcular a \emph{bounce
+frequency} dos níveis reais, $\mathrm{BP}_{\text{mês}}$; (ii) calcular a \emph{bounce
+frequency} de cada conjunto de controle e tirar a média sobre os conjuntos,
+$\mathrm{BA}_{\text{mês}}$; (iii) contar em quantos dos meses vale
+$\mathrm{BP}_{\text{mês}} > \mathrm{BA}_{\text{mês}}$; (iv) comparar essa contagem a uma
+$\mathrm{Binomial}(N_{\text{meses}}, 0{,}5)$, tomando a cauda superior (teste unilateral, pois
+a hipótese é direcional). Para H1b troca-se a \emph{bounce frequency} pela magnitude média de
+continuação.
+
+\paragraph{Complementar --- p-valor empírico de Monte Carlo.} Com apenas \num{13} meses, o
+sinal binomial é pouco potente (exige $\approx$10--11 meses favoráveis para $p<0{,}05$). Como
+checagem mais potente reportamos em paralelo o p-valor empírico $(r+1)/(N+1)$ de
+\citet{north2002}: a estatística agregada (\emph{pooled} sobre os meses) dos níveis redondos
+contra a distribuição dessa mesma estatística sobre os $N$ conjuntos de controle, com
+$r = \#\{T_k \ge T_{\text{obs}}\}$ --- um teste de aleatorização no espírito da
+inferência por reamostragem \citep{davison1997}. Cada grade é testada; reporta-se também a correção de
+Bonferroni sobre as quatro grades reais.
+
+\paragraph{Nota de integridade.} Uma primeira rodada usou um \emph{proxy} não-literal
+(controle de 1R+1S por dia, $N=\num{2000}$, Monte Carlo como teste primário). Após obter e ler
+o PDF original do NY Fed, o desenho foi corrigido para a fidelidade literal acima; o resultado
+nulo de H1a se manteve entre as duas versões, o que reforça a robustez da conclusão.
+
+\section{Resultados}
+
+\paragraph{Resultado central: não há evidência do efeito de número redondo para o USD/BRL
+neste conjunto de dados.} A Tabela~\ref{tab:main} traz o desenho primário (banda
+\SI{0.01}{\percent}, janela 15 min).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Teste confirmatório primário (banda \SI{0.01}{\percent}, janela 15 min).
+  $p_{\text{binom}}$ é o teste literal de sinal mensal; $p_{\text{MC}}$ é o Monte Carlo
+  complementar. Nenhum $p<0{,}05$ para H1a. Os $p_{\text{MC}}$ de H1b em negrito são
+  diagnosticados como artefato (ver texto), pois o placebo acende junto.}
+  \label{tab:main}
+  \small
+  \begin{tabular}{llccccc}
+    \toprule
+    Grade & Hipótese & Meses (BP$>$BA) & Est.\ obs. & Nula (méd.) & $p_{\text{binom}}$ & $p_{\text{MC}}$ \\
+    \midrule
+    R\$1,00 & H1a \emph{bounce}    & 0/2  & 0,447 & 0,550 & 1,000 & 1,000 \\
+    R\$0,50 & H1a \emph{bounce}    & 3/6  & 0,546 & 0,550 & 0,656 & 0,814 \\
+    R\$0,10 & H1a \emph{bounce}    & 4/12 & 0,519 & 0,550 & 0,927 & 1,000 \\
+    R\$0,05 & H1a \emph{bounce}    & 8/13 & 0,551 & 0,550 & 0,291 & 0,347 \\
+    \addlinespace
+    R\$1,00 & H1b magnitude        & 1/2  & 0,00386 & 0,00456 & 0,750 & 1,000 \\
+    R\$0,50 & H1b magnitude        & 4/6  & 0,00466 & 0,00456 & 0,344 & 0,058 \\
+    R\$0,10 & H1b magnitude        & 7/12 & 0,00476 & 0,00456 & 0,387 & \textbf{0,001} \\
+    R\$0,05 & H1b magnitude        & 5/13 & 0,00473 & 0,00456 & 0,867 & \textbf{0,004} \\
+    \addlinespace
+    \textbf{R\$0,01 (placebo)} & H1a \emph{bounce} & 6/13 & 0,546 & 0,550 & 0,709 & 0,827 \\
+    \textbf{R\$0,01 (placebo)} & H1b magnitude     & 6/13 & 0,00468 & 0,00456 & 0,709 & \textbf{0,025} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{H1a (reversão) --- nulo, os dois testes concordam.} A taxa de \emph{bounce} nos
+níveis redondos não supera a de níveis arbitrários: fica igual ou um pouco \emph{abaixo} da
+média nula ($\approx 0{,}55$, valor próximo do $\approx\SI{56}{\percent}$ que a própria Osler
+reporta). Nenhum $p_{\text{binom}}$ nem $p_{\text{MC}}$ fica abaixo de \num{0.05}, em nenhuma
+grade.
+
+\paragraph{H1b (aceleração) --- nulo pelo teste literal; o ``sinal'' do Monte Carlo é
+artefato.} O sinal binomial mensal não acusa nada ($p_{\text{binom}} \ge 0{,}34$ em toda
+grade). O Monte Carlo \emph{pooled} marca algumas grades como significativas
+(R\$0,10 $\to$ 0,001; R\$0,05 $\to$ 0,004), \emph{mas marca também o placebo R\$0,01}
+($p=0{,}025$), que por construção não deveria ter efeito. Como o placebo mostra o mesmo
+padrão, trata-se de artefato de agregação: os níveis redondos (e o placebo, que ladrilha quase
+todo o eixo de preço) sentam sobre o caminho do preço, enquanto os controles ficam espalhados
+pelo range mensal, enviesando a comparação \emph{pooled} de magnitude. O teste de sinal
+mensal, que compara mês a mês contra $\mathrm{BA}_{\text{mês}}$, não cai nesse viés --- e o
+placebo o denuncia. Não há evidência crível de aceleração.
+
+\paragraph{Corroboração visual --- event-study.} Alinhamos cada toque em $k=0$ e acompanhamos
+o retorno acumulado \emph{assinado} (em bps) de $-10$ a $+30$ minutos; o sinal segue a direção
+de aproximação, de modo que no eixo $y$ positivo indica continuação e negativo indica
+reversão. Se H1a fosse verdadeira, a curva dos níveis redondos ficaria abaixo da de controle
+no trecho pós-toque. A Figura~\ref{fig:es} mostra o contrário: pós-toque, os retornos ficam
+próximos de zero e as curvas redondas coincidem com a banda de controle de Osler --- nenhum
+sinal de reversão sistemática.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{event_study.png}
+  \caption{\emph{Event-study} do toque: retorno acumulado assinado (bps) contra o tempo desde
+  o toque ($k=0$). Níveis redondos (R\$0,50, R\$1,00) vs.\ controle sorteado. As curvas
+  redondas não se descolam da banda de controle no pós-toque. Viz com $N=25$ conjuntos de
+  controle \emph{pooled}; o teste confirmatório usa $N=\num{5000}$.}
+  \label{fig:es}
+\end{figure}
+
+\paragraph{Robustez.} O nulo de H1a se mantém nas variantes de banda (\SI{0}{\percent},
+\SI{0.02}{\percent}) e de janela (30 min). O padrão de H1b (nulo pelo teste literal, positivo
+no Monte Carlo inclusive no placebo) também se repete, confirmando o diagnóstico de artefato.
+
+\section{Limitações}
+
+\paragraph{Baixa potência.} Com \num{13} meses, $\mathrm{Binomial}(13, 0{,}5)$ exige
+$\approx$10--11 meses com $\mathrm{BP}>\mathrm{BA}$ para $p<0{,}05$; as grades grossas têm
+poucos meses com toques (R\$1,00 tem só 2). O nulo é, portanto, um nulo \emph{sob baixa
+potência}: ausência de evidência, não evidência forte de ausência.
+
+\paragraph{Cotação demo.} A fonte é preço de corretora demo, não \emph{order flow} real; o
+prêmio de $\approx\SI{72}{bps}$ desloca os níveis redondos finos frente ao mercado. Isso
+enfraquece o poder de detectar um eventual efeito nas grades finas, mas não afeta a grade
+R\$1,00 (a mais confiável) nem a direção do resultado.
+
+\paragraph{Assimetria de eventos.} Herdada do desenho de Osler, há assimetria natural entre o
+número de eventos de uma grade real e de um conjunto de controle. Ainda assim, a convergência
+dos dois testes para H1a e o diagnóstico de artefato para H1b tornam a conclusão robusta
+dentro da amostra disponível.
+
+\section{Conclusão}
+
+Não encontramos evidência de que números redondos funcionem como suporte/resistência
+psicológico no USD/BRL intradiário. A frequência de reversão nesses níveis é indistinguível
+da de níveis sorteados ao acaso, em todas as grades e variantes; o único ``sinal'' de
+aceleração é um artefato de agregação denunciado pelo próprio placebo. O mecanismo que
+\citet{osler2000} documenta de forma robusta para pares de mercados desenvolvidos
+\emph{não se replica} de forma detectável para o Real neste período. A parede invisível, para
+o dólar frente ao real, parece ser superstição importada --- com a ressalva honesta de que
+uma amostra maior e uma fonte de \emph{order flow} real poderiam, em princípio, revelar um
+efeito fraco que a nossa potência não alcança.
+
+\paragraph{Reprodutibilidade.} Todo o pipeline (ingestão, geração de controle, testes,
+event-study, sanity check) e os snapshots de dados estão versionados no repositório; a análise
+roda com \texttt{python -m src.run\_analysis}. Uma experiência web de \emph{scrollytelling}
+comunica o mesmo resultado a público leigo, sem jargão.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
