@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-experience",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4321",
+        "--directory",
+        "web"
+      ],
+      "port": 4321
+    }
+  ]
+}
