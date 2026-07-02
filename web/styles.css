@@ -91,10 +91,9 @@ main{position:relative; z-index:3}
   background:radial-gradient(58% 62% at 50% 46%,
     rgba(10,14,20,.78) 0%, rgba(10,14,20,.5) 52%, transparent 78%);
 }
-.copy.c-left{align-self:flex-start; text-align:left; margin-left:2vw}
+.copy.c-left,.copy.c-intro{align-self:flex-start; text-align:left; margin-left:2vw}
 .copy.c-top{position:absolute; top:14vh; left:0; right:0; text-align:center; padding:0 6vw}
 .copy.c-center{text-align:center}
-.copy.c-intro{text-align:left}
 
 .kicker{font-size:12px; letter-spacing:.34em; text-transform:uppercase; color:var(--wall); margin-bottom:22px}
 .display{font-family:var(--disp); font-weight:700; letter-spacing:-.02em; line-height:.94;
