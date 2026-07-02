@@ -21,6 +21,8 @@ import pandas as pd
 
 from src.events import filter_session, _prepare_series, detect_touch_events
 from src.round_levels import all_round_levels
+from src.local_levels import find_swing_points
+from src.control_levels import build_daily_ohlc
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_PATH = ROOT / "data" / "raw" / "usdbrl_m1_fbs_demo.csv"
@@ -73,6 +75,40 @@ def build_walls(grids: dict):
     return walls
 
 
+def build_swings(s: pd.DataFrame, full_idx: np.ndarray):
+    """Extremos locais confirmados (fractal k=5, ver src/local_levels.py),
+    mapeados p/ posicao na serie downsampled -- so p/ ilustracao (usa TODOS
+    os confirmados, nao o roster de 20+20 usado no teste estatistico)."""
+    daily = build_daily_ohlc(s)
+    swings = find_swing_points(daily)
+    date_first_pos = s.groupby(s["time"].dt.date).apply(lambda g: g.index[0])
+    out = []
+    for row in swings.itertuples(index=False):
+        if row.date not in date_first_pos.index:
+            continue
+        gi = int(date_first_pos.loc[row.date])
+        di = int(np.searchsorted(full_idx, gi))
+        di = min(di, len(full_idx) - 1)
+        out.append({"i": di, "p": round(float(row.level), 4), "side": row.level_type})
+    out.sort(key=lambda x: x["i"])
+    return out
+
+
+def build_experiment_local(confirm: pd.DataFrame):
+    """H1a bounce para a grade de extremo local (mesmo formato de build_experiment)."""
+    r = confirm[(confirm["primario"] == True) & (confirm["grade"] == "local_extrema")
+                & (confirm["hipotese"] == "H1a_bounce")]
+    if r.empty:
+        return None
+    r = r.iloc[0]
+    return {
+        "tratamento": round(float(r["estatistica_obs"]) * 100, 2),
+        "sorteado": round(float(r["nula_media"]) * 100, 2),
+        "n_meses": int(r["n_meses"]),
+        "p": round(float(r["p_montecarlo"]), 4),
+    }
+
+
 def build_experiment(confirm: pd.DataFrame):
     """H1a bounce: taxa observada (redondo) vs. media nula (sorteado), grade primaria."""
     prim = confirm[(confirm["primario"] == True) & (confirm["hipotese"] == "H1a_bounce")]
@@ -120,8 +156,10 @@ def main():
     full_idx, price_ds = build_series(s)
     touches, touch_counts = build_touches(s, grids, full_idx)
     walls = build_walls(grids)
+    swings = build_swings(s, full_idx)
     confirm = pd.read_csv(CONFIRM_PATH)
     experiment = build_experiment(confirm)
+    experiment_local = build_experiment_local(confirm)
     ev = pd.read_csv(EVENT_PATH)
     event_study = build_event_study(ev)
 
@@ -155,6 +193,8 @@ def main():
         "experiment": experiment,
         "headline": head,
         "event_study": event_study,
+        "swings": swings,
+        "experiment_local": experiment_local,
     }
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +206,9 @@ def main():
     print(f"  round touches : {sum(touch_counts.values())}  {touch_counts}")
     print(f"  walls         : { {k: len(v) for k, v in walls.items()} }")
     print(f"  headline      : redondo {head['redondo']}% vs sorteado {head['sorteado']}%")
+    print(f"  swings        : {len(swings)}")
+    if experiment_local:
+        print(f"  extremo local : {experiment_local['tratamento']}% vs sorteado {experiment_local['sorteado']}%")
     print(f"  premio demo   : {premio_bps} bps")
 
 

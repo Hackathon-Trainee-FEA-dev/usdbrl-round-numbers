@@ -106,6 +106,32 @@
     </div>
   </section>
 
+  <!-- 4.5 · LOCAL EXTREMA / O OUTRO PALPITE -->
+  <section class="beat" data-scene="extremo" data-label="O outro palpite" style="height:360vh">
+    <div class="sticky">
+      <div class="copy c-top">
+        <p class="kicker mono">o outro palpite</p>
+        <h2 class="display sm">Topo e fundo recentes seguram mais?</h2>
+        <p class="lede narrow">Testamos se o preço reage a <em>topos e fundos recentes</em> — o outro
+          jeito clássico de marcar suporte e resistência.</p>
+      </div>
+      <div class="versus" id="versus-ext">
+        <div class="vs-col vs-round">
+          <p class="vs-cap mono">topo/fundo recente</p>
+          <b class="vs-num" id="vs-ext">0%</b>
+          <p class="vs-sub mono">ricochetes</p>
+        </div>
+        <div class="vs-mid mono">vs</div>
+        <div class="vs-col vs-rand">
+          <p class="vs-cap mono">níveis sorteados</p>
+          <b class="vs-num" id="vs-ext-rand">0%</b>
+          <p class="vs-sub mono">ricochetes</p>
+        </div>
+      </div>
+      <p class="verdict-line" id="ext-verdict">de novo, sem diferença.</p>
+    </div>
+  </section>
+
   <!-- 5 · RICOCHET / O RICOCHETE -->
   <section class="beat" data-scene="ricochet" data-label="O ricochete" style="height:420vh">
     <div class="sticky">
@@ -129,13 +155,14 @@
       <div class="copy c-center">
         <p class="kicker mono">o veredito</p>
         <h2 class="display">Não há parede.<br><span class="accent">Só superstição.</span></h2>
-        <p class="lede">Para o USD/BRL, os números redondos não seguram nada. O preço passa reto —
-          por R$&nbsp;5,00, por R$&nbsp;5,50, como por qualquer outro nível.
-          <span class="dim">O efeito que existe no euro e no iene simplesmente não aparece aqui.</span></p>
+        <p class="lede">Para o USD/BRL, nem números redondos nem topos/fundos recentes seguram o preço —
+          ele passa reto por qualquer nível.
+          <span class="dim">O efeito que existe no euro e no iene simplesmente não aparece aqui.
+          E não por falta de instrumento: um efeito do tamanho do de lá fora seria detectado.</span></p>
         <div class="coda mono">
           <p>* Feed intradiário M1 (corretora demo), sessão líquida 15:30–23:00. Um ano: <span id="coda-range"></span>.</p>
           <p>* Desenho fiel a Osler (2000): teste de sinal mensal, controle de 20 níveis por lado/dia, placebo em R$&nbsp;0,01.</p>
-          <p>* Resultado nulo em todas as grades. As análises formais estão no paper.</p>
+          <p>* Dois palpites testados — número redondo e topo/fundo recente, mesmo nulo nos dois — checados por uma análise de poder à parte.</p>
           <p class="coda-links">
             <a href="https://github.com/Hackathon-Trainee-FEA-dev/usdbrl-round-numbers/blob/main/paper/main.pdf" target="_blank" rel="noopener">ler o paper (PDF) ↗</a>
             <a href="https://github.com/Hackathon-Trainee-FEA-dev/usdbrl-round-numbers" target="_blank" rel="noopener">código &amp; dados (GitHub) ↗</a>

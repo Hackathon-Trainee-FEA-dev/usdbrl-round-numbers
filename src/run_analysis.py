@@ -25,7 +25,7 @@ import os
 import time
 import pandas as pd
 
-from src import round_levels, events, stats
+from src import round_levels, local_levels, events, stats
 
 RAW_PATH = "data/raw/usdbrl_m1_fbs_demo.csv"
 OUT_DIR = "results"
@@ -55,18 +55,25 @@ def main():
     price_min, price_max = df["low"].min(), df["high"].max()
     grids = round_levels.all_round_levels(price_min, price_max)
 
+    # (2b) roster diario de niveis de extremo local (swing points, k=5 dias,
+    # 20 R + 20 S mais recentes -- ver local_levels.py). Independe de
+    # banda/janela, calculado uma vez so.
+    local_roster = local_levels.daily_active_levels(df)
+
     all_results = []
     for name, tol, window, is_primary in PARAM_SETS:
         t0 = time.time()
         round_ev = events.run_round_level_events(df, grids, tolerance_pct=tol, window_min=window)
+        local_ev = events.run_local_extrema_events(df, local_roster, tolerance_pct=tol, window_min=window)
+        treatment_ev = pd.concat([round_ev, local_ev], ignore_index=True)
         ctrl = events.run_control_monthly_stats(df, n_sets=N_SETS, seed=SEED,
                                                 tolerance_pct=tol, window_min=window)
-        res = stats.run_confirmatory_test(round_ev, ctrl)
+        res = stats.run_confirmatory_test(treatment_ev, ctrl)
         res.insert(0, "parametro", name)
         res.insert(1, "primario", is_primary)
         all_results.append(res)
-        print(f"[{name}] round={len(round_ev)} eventos, {len(ctrl['months'])} meses, "
-              f"N={N_SETS} conjuntos, {time.time()-t0:.1f}s")
+        print(f"[{name}] round={len(round_ev)} eventos, local_extrema={len(local_ev)} eventos, "
+              f"{len(ctrl['months'])} meses, N={N_SETS} conjuntos, {time.time()-t0:.1f}s")
 
     results = pd.concat(all_results, ignore_index=True)
     results.to_csv(OUT_PATH, index=False)

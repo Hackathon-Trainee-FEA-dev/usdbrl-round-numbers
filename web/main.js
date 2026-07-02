@@ -5,6 +5,7 @@ const COL = {
   price: "#00ff9c",
   wall: "#38bdf8",
   rand: "#8b7cff",
+  extrema: "#ffb020",
   dim: "#4a5766",
   ink: "#e6f0f2",
   danger: "#ff4d6d",
@@ -12,7 +13,7 @@ const COL = {
 const MONO = '500 12px "JetBrains Mono", monospace';
 
 // ---------- estado global ----------
-const app = { scene: "intro", p: 0, edge: 1, data: null, firedUpTo: -1, verdictFired: false };
+const app = { scene: "intro", p: 0, edge: 1, data: null, firedUpTo: -1, swingFiredUpTo: -1, verdictFired: false };
 
 // ---------- canvas ----------
 const canvas = document.getElementById("stage");
@@ -162,6 +163,32 @@ function drawTouchDots(head, ignite) {
   }
 }
 
+function drawSwingMarks(head, ignite) {
+  const S = app.data.swings || [];
+  ctx.save();
+  ctx.globalAlpha = .75; ctx.fillStyle = hexA(COL.extrema, .95);
+  for (const sw of S) {
+    if (sw.i > head) break;
+    const x = wx(sw.i), y = wy(sw.p);
+    ctx.beginPath();
+    if (sw.side === "R") { ctx.moveTo(x, y - 4); ctx.lineTo(x - 4, y + 3); ctx.lineTo(x + 4, y + 3); }
+    else { ctx.moveTo(x, y + 4); ctx.lineTo(x - 4, y - 3); ctx.lineTo(x + 4, y - 3); }
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (ignite) {
+    if (head < app.swingFiredUpTo) app.swingFiredUpTo = -1;
+    let spawned = 0;
+    for (const sw of S) {
+      if (sw.i <= app.swingFiredUpTo) continue;
+      if (sw.i > head) break;
+      if (spawned < 3) { burst(wx(sw.i), wy(sw.p), COL.extrema, 4, 1.6); spawned++; }
+    }
+    app.swingFiredUpTo = head;
+  }
+}
+
 // ---------- DOM refs ----------
 const el = (s) => document.querySelector(s);
 const beats = [...document.querySelectorAll(".beat")];
@@ -170,6 +197,8 @@ const ui = {
   counters: el(".counters"),
   versus: el(".versus"), vsRound: el("#vs-round"), vsRand: el("#vs-rand"),
   expVerdict: el("#exp-verdict"),
+  versusExt: el("#versus-ext"), vsExt: el("#vs-ext"), vsExtRand: el("#vs-ext-rand"),
+  extVerdict: el("#ext-verdict"),
   legend: el("#es-legend"),
   coda: el(".coda"),
   sceneLabel: el("#scene-label"),
@@ -263,6 +292,26 @@ function sceneExperiment() {
   ui.vsRound.textContent = (k * h.redondo).toFixed(1).replace(".", ",") + "%";
   ui.vsRand.textContent = (k * h.sorteado).toFixed(1).replace(".", ",") + "%";
   fade(ui.expVerdict, (app.p > 0.72 ? 1 : 0) * app.edge);
+}
+
+function sceneExtremo() {
+  // linha de preco recuada (mesmo tratamento do veredito): fundo sutil,
+  // pra nao competir com o texto -- so os marcadores de topo/fundo ficam
+  // em destaque, que sao o conteudo desta cena.
+  const rev = smooth(clamp((app.p - 0.05) / 0.85));
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  const head = drawWorldLine(rev, false);
+  ctx.restore();
+  drawSwingMarks(head, true);
+
+  const d = app.data.experiment_local;
+  if (!d) return;
+  const k = smooth(clamp((app.p - 0.1) / 0.6));
+  fade(ui.versusExt, (app.p > 0.08 ? 1 : 0) * app.edge);
+  ui.vsExt.textContent = (k * d.tratamento).toFixed(1).replace(".", ",") + "%";
+  ui.vsExtRand.textContent = (k * d.sorteado).toFixed(1).replace(".", ",") + "%";
+  fade(ui.extVerdict, (app.p > 0.72 ? 1 : 0) * app.edge);
 }
 
 // event-study (ricochete)
@@ -390,6 +439,7 @@ function updateScroll() {
   if (active.scene !== prevScene) {
     parts.length = 0;                              // limpa faíscas ao trocar de cena
     if (prevScene === "data") app.firedUpTo = -1;
+    if (prevScene === "extremo") app.swingFiredUpTo = -1;
     if (active.scene !== "verdict") app.verdictFired = false;
     ui.sceneLabel.textContent = active.label;
     document.querySelectorAll("#rail button").forEach((b) => b.classList.toggle("on", b.dataset.scene === active.scene));
@@ -410,6 +460,7 @@ function frame(now) {
     case "belief": sceneBelief(t); break;
     case "data": sceneData(); break;
     case "experiment": sceneExperiment(); break;
+    case "extremo": sceneExtremo(); break;
     case "ricochet": sceneRicochet(); break;
     case "verdict": sceneVerdict(); break;
   }

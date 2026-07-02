@@ -39,13 +39,20 @@ Sobre \num{98694} barras M1 (2025-07-30 a 2026-07-01, \num{224} pregões, \num{1
 não encontramos evidência do efeito: a frequência de reversão nos níveis redondos
 ($\approx \SI{55}{\percent}$) é estatisticamente indistinguível --- e por vezes levemente
 inferior --- à de níveis arbitrários, em todas as grades testadas
-(R\$1,00 / R\$0,50 / R\$0,10 / R\$0,05) e sob todas as variantes de robustez. Um
+(R\$1,00 / R\$0,50 / R\$0,10 / R\$0,05) e sob todas as variantes de robustez. Estendemos o
+teste ao segundo mecanismo que a própria \citet{osler2000} cita como fonte dos níveis
+publicados por analistas --- extremos locais (mínimos/máximos, \emph{swing points}) --- com
+uma operacionalização própria (fractal de 5 dias), já que o algoritmo exato dela para esse
+teste está num paper-irmão não publicado \citep{osler2000b}; o resultado é o mesmo nulo. Um
 \emph{event-study} do retorno assinado pós-toque corrobora visualmente o nulo. A extensão de
 aceleração pós-rompimento (H1b) só aparece em um teste agregado de Monte Carlo que
-\emph{também} acende no placebo de falsificação (R\$0,01), sendo portanto diagnosticada como
-artefato de agregação, não ancoragem. O resultado é um nulo sob baixa potência: consistente
-com a ausência do mecanismo de Osler para o Real neste período, com as ressalvas de amostra
-curta e cotação de corretora demo.
+\emph{também} acende no placebo de falsificação (R\$0,01) e nos extremos locais, sendo
+portanto diagnosticada como artefato de agregação, não ancoragem. Uma checagem de poder ---
+injetar artificialmente um viés do tamanho do que \citet{osler2000} mediu em pares G10
+($+4{,}6$ pontos percentuais) nos dados reais --- mostra que o teste o detectaria com folga,
+descartando baixa potência como explicação nas grades bem povoadas. O nulo é, portanto, mais
+bem explicado por diferenças reais de desenho frente a Osler: nível curado por analista vs.\
+enumeração mecânica, toque bid/ask vs.\ OHLC, e microestrutura de mercado emergente vs.\ G10.
 \end{abstract}
 
 \section{Introdução}
@@ -78,6 +85,11 @@ Formulamos duas hipóteses direcionais:
   extensão, ancorada na literatura de regras de rompimento e filtro
   \citep{alexander1961,brock1992,curcio1997}.
 \end{itemize}
+
+Testamos H1a e H1b contra dois candidatos independentes para a origem do nível psicológico:
+\textbf{números redondos} (a réplica literal de Osler) e \textbf{extremos locais}
+(mínimos/máximos, o segundo mecanismo que a própria \citet{osler2000} cita --- endnote 8 ---
+como fonte dos níveis que analistas publicam; ver Seção~\ref{sec:metodo}).
 
 \section{Dados}
 
@@ -158,6 +170,37 @@ Hierarquia por força decrescente: \textbf{R\$1,00 / R\$0,50 / R\$0,10 / R\$0,05
 efeito psicológico, que serve de checagem negativa: se acender, é sinal de artefato, não de
 ancoragem.
 
+\subsection{Extremos locais: segundo mecanismo candidato}
+\label{sec:local}
+
+\citet{osler2000} não deriva os níveis do teste central do paper a partir de nenhum
+algoritmo --- eles são publicados por seis firmas de análise técnica, e ela apenas
+\emph{observa}, a posteriori, que terminam em 0 ou 5 em \SI{96}{\percent} dos casos. A
+endnote~8 do mesmo paper revela que, num paper-irmão não publicado
+\citep{osler2000b}, ela testou isoladamente se números redondos \emph{ou} extremos locais
+(mínimos/máximos) --- os dois insumos que as firmas mais citam para escolher níveis --- têm
+poder preditivo próprio. Ela reporta que ambos têm, embora nenhum dos dois explique sozinho
+todo o poder preditivo dos níveis publicados.
+
+Esse paper-irmão não está disponível publicamente, e o algoritmo exato que Osler usou para
+extremos locais não foi localizado. Implementamos, portanto, uma
+\textbf{operacionalização própria e documentada} desse segundo mecanismo --- ao contrário do
+controle 20R+20S (réplica literal), este não é uma réplica de um método conhecido:
+
+\begin{itemize}
+  \item \textbf{Definição (fractal clássico de \emph{swing point}).} Um dia é um máximo local
+  (``resistência'') confirmado se seu \emph{high} for maior que o de \emph{todos} os $k=5$
+  dias de pregão anteriores e seguintes; simétrico para mínimo local (``suporte'') via
+  \emph{low}. $k=5$ é o fractal padrão de 5 barras (popularizado por Bill Williams).
+  \item \textbf{Sem \emph{look-ahead}.} A confirmação só é possível $k$ dias depois do dia
+  candidato; o nível só entra na lista de ``ativos'' a partir do dia seguinte à confirmação.
+  \item \textbf{Roster diário.} Os 20 máximos + 20 mínimos confirmados mais recentemente até
+  aquele dia --- paridade estatística deliberada com o controle 20R+20S de Osler.
+\end{itemize}
+
+Testado com o mesmo teste confirmatório e o mesmo controle usados nas grades redondas; só
+muda a origem do nível de tratamento.
+
 \subsection{Teste confirmatório}
 
 \paragraph{Primário --- sinal binomial mensal (o teste literal de Osler).} Osler não usa
@@ -177,7 +220,9 @@ checagem mais potente reportamos em paralelo o p-valor empírico $(r+1)/(N+1)$ d
 contra a distribuição dessa mesma estatística sobre os $N$ conjuntos de controle, com
 $r = \#\{T_k \ge T_{\text{obs}}\}$ --- um teste de aleatorização no espírito da
 inferência por reamostragem \citep{davison1997}. Cada grade é testada; reporta-se também a correção de
-Bonferroni sobre as quatro grades reais.
+Bonferroni sobre as quatro grades reais. A grade de extremos locais (Seção~\ref{sec:local}) é
+testada com o mesmo aparato, mas fora dessa família Bonferroni --- é uma hipótese
+independente, não uma variante aninhada da grade redonda.
 
 \paragraph{Nota de integridade.} Uma primeira rodada usou um \emph{proxy} não-literal
 (controle de 1R+1S por dia, $N=\num{2000}$, Monte Carlo como teste primário). Após obter e ler
@@ -186,16 +231,18 @@ nulo de H1a se manteve entre as duas versões, o que reforça a robustez da conc
 
 \section{Resultados}
 
-\paragraph{Resultado central: não há evidência do efeito de número redondo para o USD/BRL
-neste conjunto de dados.} A Tabela~\ref{tab:main} traz o desenho primário (banda
-\SI{0.01}{\percent}, janela 15 min).
+\paragraph{Resultado central: não há evidência de nenhum dos dois mecanismos de
+suporte/resistência de Osler para o USD/BRL neste conjunto de dados.} A Tabela~\ref{tab:main}
+traz o desenho primário (banda \SI{0.01}{\percent}, janela 15 min), para números redondos e
+para extremos locais (Seção~\ref{sec:local}).
 
 \begin{table}[htbp]
   \centering
   \caption{Teste confirmatório primário (banda \SI{0.01}{\percent}, janela 15 min).
   $p_{\text{binom}}$ é o teste literal de sinal mensal; $p_{\text{MC}}$ é o Monte Carlo
-  complementar. Nenhum $p<0{,}05$ para H1a. Os $p_{\text{MC}}$ de H1b em negrito são
-  diagnosticados como artefato (ver texto), pois o placebo acende junto.}
+  complementar. Nenhum $p<0{,}05$ para H1a, em nenhuma grade. Os $p_{\text{MC}}$ de H1b em
+  negrito são diagnosticados como artefato (ver texto), pois o placebo e os extremos locais
+  acendem junto.}
   \label{tab:main}
   \small
   \begin{tabular}{llccccc}
@@ -214,26 +261,32 @@ neste conjunto de dados.} A Tabela~\ref{tab:main} traz o desenho primário (band
     \addlinespace
     \textbf{R\$0,01 (placebo)} & H1a \emph{bounce} & 6/13 & 0,546 & 0,550 & 0,709 & 0,827 \\
     \textbf{R\$0,01 (placebo)} & H1b magnitude     & 6/13 & 0,00468 & 0,00456 & 0,709 & \textbf{0,025} \\
+    \addlinespace
+    \textbf{Extremo local} & H1a \emph{bounce} & 6/11 & 0,542 & 0,550 & 0,500 & 0,975 \\
+    \textbf{Extremo local} & H1b magnitude     & 8/11 & 0,00542 & 0,00456 & 0,113 & \textbf{0,000} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{H1a (reversão) --- nulo, os dois testes concordam.} A taxa de \emph{bounce} nos
-níveis redondos não supera a de níveis arbitrários: fica igual ou um pouco \emph{abaixo} da
-média nula ($\approx 0{,}55$, valor próximo do $\approx\SI{56}{\percent}$ que a própria Osler
-reporta). Nenhum $p_{\text{binom}}$ nem $p_{\text{MC}}$ fica abaixo de \num{0.05}, em nenhuma
-grade.
+\paragraph{H1a (reversão) --- nulo, os dois testes concordam, nas duas famílias de nível.} A
+taxa de \emph{bounce} nos níveis redondos não supera a de níveis arbitrários: fica igual ou um
+pouco \emph{abaixo} da média nula ($\approx 0{,}55$, valor próximo do
+$\approx\SI{56}{\percent}$ que a própria Osler reporta). Nenhum $p_{\text{binom}}$ nem
+$p_{\text{MC}}$ fica abaixo de \num{0.05}, em nenhuma grade redonda. Os extremos locais
+reproduzem exatamente o mesmo veredito ($p_{\text{binom}}=0{,}500$, $p_{\text{MC}}=0{,}975$).
 
 \paragraph{H1b (aceleração) --- nulo pelo teste literal; o ``sinal'' do Monte Carlo é
-artefato.} O sinal binomial mensal não acusa nada ($p_{\text{binom}} \ge 0{,}34$ em toda
-grade). O Monte Carlo \emph{pooled} marca algumas grades como significativas
-(R\$0,10 $\to$ 0,001; R\$0,05 $\to$ 0,004), \emph{mas marca também o placebo R\$0,01}
-($p=0{,}025$), que por construção não deveria ter efeito. Como o placebo mostra o mesmo
-padrão, trata-se de artefato de agregação: os níveis redondos (e o placebo, que ladrilha quase
-todo o eixo de preço) sentam sobre o caminho do preço, enquanto os controles ficam espalhados
-pelo range mensal, enviesando a comparação \emph{pooled} de magnitude. O teste de sinal
-mensal, que compara mês a mês contra $\mathrm{BA}_{\text{mês}}$, não cai nesse viés --- e o
-placebo o denuncia. Não há evidência crível de aceleração.
+artefato.} O sinal binomial mensal não acusa nada ($p_{\text{binom}} \ge 0{,}11$ em toda
+grade, incluindo extremos locais). O Monte Carlo \emph{pooled} marca algumas grades como
+significativas (R\$0,10 $\to$ 0,001; R\$0,05 $\to$ 0,004; extremo local $\to$ 0,0002),
+\emph{mas marca também o placebo R\$0,01} ($p=0{,}025$), que por construção não deveria ter
+efeito. Como o placebo --- e, agora, também os extremos locais, um mecanismo de nível
+completamente independente --- mostram o mesmo padrão, trata-se de artefato de agregação: os
+níveis redondos (e o placebo, e os extremos locais, que ladrilham quase todo o eixo de preço)
+sentam sobre o caminho do preço, enquanto os controles ficam espalhados pelo range mensal,
+enviesando a comparação \emph{pooled} de magnitude. O teste de sinal mensal, que compara mês a
+mês contra $\mathrm{BA}_{\text{mês}}$, não cai nesse viés --- e o placebo (e os extremos
+locais) o denunciam. Não há evidência crível de aceleração.
 
 \paragraph{Corroboração visual --- event-study.} Alinhamos cada toque em $k=0$ e acompanhamos
 o retorno acumulado \emph{assinado} (em bps) de $-10$ a $+30$ minutos; o sinal segue a direção
@@ -254,15 +307,102 @@ sinal de reversão sistemática.
 \end{figure}
 
 \paragraph{Robustez.} O nulo de H1a se mantém nas variantes de banda (\SI{0}{\percent},
-\SI{0.02}{\percent}) e de janela (30 min). O padrão de H1b (nulo pelo teste literal, positivo
-no Monte Carlo inclusive no placebo) também se repete, confirmando o diagnóstico de artefato.
+\SI{0.02}{\percent}) e de janela (30 min), nas duas famílias de nível. O padrão de H1b (nulo
+pelo teste literal, positivo no Monte Carlo inclusive no placebo e nos extremos locais)
+também se repete em todas as variantes, confirmando o diagnóstico de artefato.
+
+\subsection{Diagnóstico do nulo}
+\label{sec:diagnostico}
+
+Diante de um nulo duplo (número redondo e extremo local), checamos diretamente se a ausência
+de efeito é um artefato de implementação antes de aceitá-la como conclusão.
+
+\paragraph{A linha de base do controle reproduz o número publicado por Osler.} A frequência de
+\emph{bounce} dos níveis de controle aleatórios (a nula, sem qualquer efeito especial) ficou
+em \SI{54.9}{\percent}--\SI{55.5}{\percent} neste desenho; Osler reporta \SI{56.2}{\percent}
+para os níveis de controle dela (Table~8, p.~61 do paper original --- o feed de câmbio tem
+autocorrelação serial negativa, de modo que \emph{qualquer} nível reverte um pouco mais da
+metade das vezes, por construção). Esse número não depende de nenhuma lógica específica de
+tratamento --- só do motor de detecção de toque, classificação \emph{bounce}/continuação e do
+algoritmo de controle. Bater tão perto do valor publicado é evidência de que essa maquinaria
+compartilhada está correta.
+
+\paragraph{Checagem de poder: um efeito do tamanho do de Osler seria detectado?} Injetamos
+artificialmente um viés de reversão controlado nos eventos \emph{reais} da grade R\$0,05
+(convertendo uma fração aleatória de eventos de continuação em \emph{bounce}) e reaplicamos o
+teste confirmatório real contra o controle real (Tabela~\ref{tab:power}).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Checagem de poder sobre a grade R\$0,05: viés de reversão injetado
+  artificialmente vs.\ significância resultante no teste confirmatório real.}
+  \label{tab:power}
+  \small
+  \begin{tabular}{ccccc}
+    \toprule
+    Viés injetado & \emph{Bounce} observado & $p_{\text{binom}}$ & $p_{\text{MC}}$ & Meses (BP$>$BA) \\
+    \midrule
+    $+0{,}0$pp (dado real) & \SI{55.1}{\percent} & 0,291 & 0,369 & 8/13 \\
+    $+4{,}0$pp             & \SI{59.1}{\percent} & 0,046 & 0,002 & 10/13 \\
+    $+4{,}6$pp             & \SI{59.7}{\percent} & \textbf{0,011} & \textbf{0,002} & 11/13 \\
+    $+6{,}0$pp             & \SI{61.1}{\percent} & 0,011 & 0,002 & 11/13 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+$+4{,}6$ pontos percentuais não é arbitrário: é o efeito que a própria Osler mede para o marco
+alemão (ela reporta $+4{,}2$pp marco, $+5{,}6$pp iene, $+4{,}0$pp libra --- p.~61). Nesse
+tamanho de efeito, o teste confirmatório real acusa significância nos dois testes. Ou seja: se
+o USD/BRL tivesse um efeito do tamanho do que Osler encontrou em pares G10, este pipeline o
+teria detectado. O nulo observado não é, portanto, uma falha de poder estatístico nas grades
+bem povoadas --- a grade R\$1,00 segue sendo um caso à parte de baixa potência (só 2 meses com
+toques), discutido na próxima seção. Reproduzível com \texttt{python -m src.power\_check}.
+
+\paragraph{Por que o efeito então não aparece? Três diferenças reais frente ao desenho de
+Osler --- nenhuma delas um \emph{bug}.} \textbf{(i) Curadoria de nível, não enumeração
+mecânica} --- a diferença estruturalmente mais importante. O tratamento de Osler nunca foi
+``todo número redondo'': foram 2 a 18 níveis por firma por dia, escolhidos por analistas
+profissionais combinando leitura de fluxo de ordens, linhas de tendência e julgamento. Este
+projeto (e o próprio teste isolado de números redondos/extremos locais que Osler cita no
+paper-irmão) testa, em vez disso, \emph{todo} múltiplo de R\$0,05 ou \emph{todo} ponto de
+inflexão confirmado, mecanicamente. Se só uma fração dos níveis redondos/extremos é
+psicologicamente relevante de fato, misturá-los com muitos níveis irrelevantes dilui qualquer
+efeito real na agregação --- um problema de diluição estrutural, inerente a testar o mecanismo
+diretamente, não um erro de implementação. \textbf{(ii) Definição de toque: OHLC vs.\
+bid/ask.} Osler define um toque especificamente pelo lado do \emph{book} que dispararia uma
+ordem real --- o \emph{bid} encostando no suporte, o \emph{ask} encostando na resistência. Os
+dados brutos aqui têm uma única série OHLC, mais uma coluna de \emph{spread}
+($\approx$16 pontos na amostra inspecionada) --- cerca de 3$\times$ mais larga que a própria
+banda de toque de \SI{0.01}{\percent} ($\approx$5--6 pontos perto de uma cotação de 5,60). O
+``toque'' medido aqui é, portanto, um proxy mais grosseiro do que dispararia de fato uma ordem
+do que a definição bid/ask literal de Osler. \textbf{(iii) Estrutura de mercado: BRL vs.\
+G10.} A explicação da própria Osler para o mecanismo \citep{osler2003} é a concentração de
+ordens \emph{stop-loss}/\emph{take-profit} em números redondos --- característica de um
+mercado G10 fortemente influenciado por mesas de análise técnica no fim dos anos 1990. O
+USD/BRL é um par emergente com uma base de participantes diferente (mais fluxo macro/\emph{
+carry}, menos mesa técnica de varejo); o mecanismo de concentração de ordens que sustenta o
+efeito em G10 pode simplesmente ser mais fraco ou ausente aqui, independentemente de qualquer
+problema de medição.
+
+Em suma: a maquinaria de detecção/classificação reproduz a linha de base publicada por Osler e
+demonstrou poder de capturar um efeito do tamanho do dela quando um é injetado. O nulo
+observado é mais bem explicado por diferenças reais entre ``todo número redondo/extremo,
+medido em OHLC, num par emergente'' e ``níveis curados por analistas, medidos em bid/ask, em
+pares G10'' --- sendo a curadoria a diferença estruturalmente mais importante.
 
 \section{Limitações}
 
-\paragraph{Baixa potência.} Com \num{13} meses, $\mathrm{Binomial}(13, 0{,}5)$ exige
-$\approx$10--11 meses com $\mathrm{BP}>\mathrm{BA}$ para $p<0{,}05$; as grades grossas têm
-poucos meses com toques (R\$1,00 tem só 2). O nulo é, portanto, um nulo \emph{sob baixa
-potência}: ausência de evidência, não evidência forte de ausência.
+\paragraph{Baixa potência --- só nas grades grossas.} Com \num{13} meses,
+$\mathrm{Binomial}(13, 0{,}5)$ exige $\approx$10--11 meses com $\mathrm{BP}>\mathrm{BA}$ para
+$p<0{,}05$; a grade R\$1,00 tem só 2 meses com toques, e continua sendo um nulo \emph{sob
+baixa potência}. Mas a checagem de poder (Seção~\ref{sec:diagnostico}) mostra que essa
+limitação \emph{não} se estende às grades bem povoadas (R\$0,05, R\$0,10, extremo local): um
+efeito do tamanho do de Osler seria detectado nelas.
+
+\paragraph{Nível curado vs.\ enumeração mecânica.} A diferença mais estrutural frente ao
+desenho de Osler (Seção~\ref{sec:diagnostico}): o teste aqui usa \emph{todo} nível redondo ou
+\emph{todo} extremo confirmado, não os poucos níveis que analistas profissionais efetivamente
+selecionam. Isso dilui qualquer efeito real presente apenas numa fração dos níveis testados.
 
 \paragraph{Cotação demo.} A fonte é preço de corretora demo, não \emph{order flow} real; o
 prêmio de $\approx\SI{72}{bps}$ desloca os níveis redondos finos frente ao mercado. Isso
@@ -276,20 +416,39 @@ dentro da amostra disponível.
 
 \section{Conclusão}
 
-Não encontramos evidência de que números redondos funcionem como suporte/resistência
-psicológico no USD/BRL intradiário. A frequência de reversão nesses níveis é indistinguível
-da de níveis sorteados ao acaso, em todas as grades e variantes; o único ``sinal'' de
-aceleração é um artefato de agregação denunciado pelo próprio placebo. O mecanismo que
-\citet{osler2000} documenta de forma robusta para pares de mercados desenvolvidos
-\emph{não se replica} de forma detectável para o Real neste período. A parede invisível, para
-o dólar frente ao real, parece ser superstição importada --- com a ressalva honesta de que
-uma amostra maior e uma fonte de \emph{order flow} real poderiam, em princípio, revelar um
-efeito fraco que a nossa potência não alcança.
+Não encontramos evidência de que números redondos, ou extremos locais, funcionem como
+suporte/resistência psicológico no USD/BRL intradiário. A frequência de reversão nesses
+níveis é indistinguível da de níveis sorteados ao acaso, em todas as grades, nos dois
+mecanismos candidatos e em todas as variantes de robustez; o único ``sinal'' de aceleração é
+um artefato de agregação denunciado pelo próprio placebo e reproduzido de forma independente
+pelos extremos locais. Isso não é, no entanto, um nulo por falta de instrumento: a linha de
+base do controle reproduz a que a própria Osler publica, e uma checagem de poder mostra que um
+efeito do tamanho do que ela mediu em pares G10 teria sido detectado nas grades bem povoadas
+deste desenho.
+
+A explicação mais provável para o nulo não é, portanto, ``o teste é fraco demais para ver o
+efeito'' --- é que o efeito, \emph{tal como aqui operacionalizado}, provavelmente não existe
+neste mercado e período, e três diferenças reais de desenho ajudam a explicar por quê: (i)
+testamos \emph{todo} nível redondo ou extremo confirmado, enquanto Osler testa uma pequena
+seleção curada por analistas profissionais --- diluindo qualquer efeito concentrado numa
+fração dos níveis; (ii) medimos o toque em OHLC, não no bid/ask que efetivamente dispara uma
+ordem, um proxy mais grosseiro do que o de Osler; e (iii) o USD/BRL é um par emergente, com
+uma base de participantes provavelmente menos dominada por mesas de análise técnica de varejo
+do que os pares G10 em que Osler documenta o efeito --- o mecanismo de concentração de ordens
+\emph{stop}/\emph{take-profit} que ela identifica \citep{osler2003} pode ser genuinamente mais
+fraco aqui. O mecanismo que \citet{osler2000} documenta de forma robusta para pares de
+mercados desenvolvidos \emph{não se replica} de forma detectável para o Real neste período,
+com esta operacionalização. A parede invisível, para o dólar frente ao real, parece ser menos
+sobre a ausência de evidência e mais sobre uma diferença real de mercado e de desenho de
+teste --- com a ressalva honesta de que níveis curados por analistas, dados de \emph{order
+flow} real e uma amostra maior poderiam, em princípio, revelar um efeito que este desenho
+mecânico não capta.
 
 \paragraph{Reprodutibilidade.} Todo o pipeline (ingestão, geração de controle, testes,
-event-study, sanity check) e os snapshots de dados estão versionados no repositório; a análise
-roda com \texttt{python -m src.run\_analysis}. Uma experiência web de \emph{scrollytelling}
-comunica o mesmo resultado a público leigo, sem jargão.
+extremos locais, checagem de poder, event-study, sanity check) e os snapshots de dados estão
+versionados no repositório; a análise roda com \texttt{python -m src.run\_analysis}. Uma
+experiência web de \emph{scrollytelling} comunica o mesmo resultado a público leigo, sem
+jargão.
 
 \bibliographystyle{plainnat}
 \bibliography{refs}
