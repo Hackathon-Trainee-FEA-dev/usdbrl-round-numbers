@@ -2,5 +2,3 @@ pandas
 numpy
 statsmodels
 MetaTrader5
-streamlit
-plotly
