@@ -275,3 +275,96 @@ def run_control_monthly_stats(df: pd.DataFrame, n_sets: int, seed: int,
         "cont_count": cont_count,
         "mag_sum": mag_sum,
     }
+
+
+# ---------------------------------------------------------------------------
+# Niveis de extremo local (swing points): roster varia por dia (ver
+# local_levels.py), mas e uma UNICA realizacao real (nao ha "conjuntos"
+# simulados como no controle). Reaproveita o scan vetorizado por dia do
+# controle, mas retorna eventos granulares (como run_round_level_events),
+# para poder ser testado contra o MESMO controle 20R+20S ja usado pelos
+# niveis redondos -- mesma maquina estatistica (stats.py), so muda o
+# "grid" de origem.
+# ---------------------------------------------------------------------------
+
+def run_local_extrema_events(df: pd.DataFrame, daily_levels: dict, tolerance_pct: float = 0.0001,
+                             window_min: int = 15, max_gap_min: int = 5,
+                             time_col: str = "time") -> pd.DataFrame:
+    """
+    `daily_levels`: dict {date: [niveis...]} de local_levels.daily_active_levels.
+    `df` deve JA estar filtrado por sessao. Retorna eventos no mesmo formato
+    de run_round_level_events (grid="local_extrema", level_type="local").
+    """
+    series = _prepare_series(df, time_col=time_col)
+    close = series["close"].to_numpy()
+    high = series["high"].to_numpy()
+    low = series["low"].to_numpy()
+    gaps = series["gap_min"].to_numpy()
+    months = series["month"].to_numpy()
+    times = series[time_col].to_numpy()
+    n = len(series)
+
+    series_dates = series[time_col].dt.date
+    day_positions = series_dates.groupby(series_dates).groups
+
+    win_offsets = np.arange(1, window_min + 1)
+    rows = []
+
+    for date, levels_today in daily_levels.items():
+        if not levels_today or date not in day_positions:
+            continue
+        day_pos = np.asarray(day_positions[date])
+        if day_pos.size == 0:
+            continue
+
+        levels = np.asarray(levels_today, dtype=float)
+        d_low = low[day_pos]
+        d_high = high[day_pos]
+
+        band_lo = levels[:, None] * (1 - tolerance_pct)
+        band_hi = levels[:, None] * (1 + tolerance_pct)
+        in_band = (d_low[None, :] <= band_hi) & (d_high[None, :] >= band_lo)
+
+        shifted = np.concatenate([np.zeros((in_band.shape[0], 1), dtype=bool), in_band[:, :-1]], axis=1)
+        event_start = in_band & (~shifted)
+
+        ev_rows, ev_cols = np.nonzero(event_start)
+        if ev_rows.size == 0:
+            continue
+
+        gi = day_pos[ev_cols]
+        j = gi + window_min
+        m1 = (gi > 0) & (j < n)
+        if not m1.any():
+            continue
+        ev_rows, gi, j = ev_rows[m1], gi[m1], j[m1]
+
+        idx_mat = gi[:, None] + win_offsets[None, :]
+        gap_ok = ~(gaps[idx_mat] > max_gap_min).any(axis=1)
+        if not gap_ok.any():
+            continue
+        ev_rows, gi, j = ev_rows[gap_ok], gi[gap_ok], j[gap_ok]
+
+        lvl_ev = levels[ev_rows]
+        approach_below = close[gi - 1] < lvl_ev
+        end_below = close[j] < lvl_ev
+        is_bounce = end_below == approach_below
+        magnitude = np.abs(close[j] - lvl_ev)
+
+        for idx in range(len(gi)):
+            rows.append({
+                "time": times[gi[idx]],
+                "month": months[gi[idx]],
+                "level": lvl_ev[idx],
+                "approach_side": "below" if approach_below[idx] else "above",
+                "outcome": "bounce" if is_bounce[idx] else "continuation",
+                "magnitude": magnitude[idx],
+            })
+
+    if not rows:
+        return pd.DataFrame(columns=["time", "month", "level", "approach_side",
+                                     "outcome", "magnitude", "grid", "level_type"])
+    result = pd.DataFrame(rows)
+    result["grid"] = "local_extrema"
+    result["level_type"] = "local"
+    return result

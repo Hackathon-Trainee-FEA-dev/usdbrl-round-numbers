@@ -9,12 +9,13 @@ PYTHON ?= python
 PORT   ?= 4321
 
 .DEFAULT_GOAL := help
-.PHONY: help install analysis sanity event-study web-data research web paper clean
+.PHONY: help install analysis power-check sanity event-study web-data research web paper clean
 
 help:  ## Lista os alvos disponíveis
 	@echo "Alvos disponíveis:"
 	@echo "  install      instala as dependências Python (requirements.txt)"
 	@echo "  analysis     roda o teste confirmatório -> results/confirmatory_results.csv"
+	@echo "  power-check  checagem de poder (injeta efeito do tamanho do de Osler) -> results/power_check.csv"
 	@echo "  sanity       roda o sanity check MT5 vs PTAX -> figures/sanity_ptax.png"
 	@echo "  event-study  roda o event-study do toque -> figures/event_study.png"
 	@echo "  web-data     (re)gera web/data.json a partir dos dados brutos"
@@ -31,6 +32,9 @@ install:  ## Instala as dependências Python
 
 analysis:  ## Teste confirmatório (primário + robustez)
 	$(PYTHON) -m src.run_analysis
+
+power-check:  ## Checagem de poder: injeta efeito do tamanho do de Osler e reaplica o teste
+	$(PYTHON) -m src.power_check
 
 sanity:  ## Sanity check da fonte (MT5 vs PTAX oficial do BCB)
 	$(PYTHON) -m src.sanity_ptax

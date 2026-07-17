@@ -47,7 +47,7 @@ import numpy as np
 import pandas as pd
 
 REAL_GRIDS = ["1.00", "0.50", "0.10", "0.05"]
-GRID_ORDER = {"1.00": 0, "0.50": 1, "0.10": 2, "0.05": 3, "0.01_placebo": 4}
+GRID_ORDER = {"1.00": 0, "0.50": 1, "0.10": 2, "0.05": 3, "0.01_placebo": 4, "local_extrema": 5}
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +174,9 @@ def run_confirmatory_test(round_events: pd.DataFrame, ctrl: dict) -> pd.DataFram
     rows = []
     for grid_name, grid_events in round_events.groupby("grid"):
         is_placebo = grid_name.endswith("placebo")
+        # Bonferroni e sobre a familia das 4 grades redondas reais; grades
+        # fora dessa familia (ex. local_extrema) nao entram na correcao.
+        in_bonferroni_family = grid_name in REAL_GRIDS
 
         # ---- H1a: bounce (LITERAL Osler) ----
         bp = _round_monthly_bounce(grid_events, months)
@@ -185,7 +188,7 @@ def run_confirmatory_test(round_events: pd.DataFrame, ctrl: dict) -> pd.DataFram
             "n_meses": nmo, "sucessos_BPmaiorBA": s, "p_binomial": p_bin,
             "estatistica_obs": obs_pooled, "nula_media": float(np.nanmean(null_bounce_pooled)),
             "p_montecarlo": p_mc,
-            "p_binom_bonferroni": min(1.0, p_bin * n_real) if (not is_placebo and not np.isnan(p_bin)) else np.nan,
+            "p_binom_bonferroni": min(1.0, p_bin * n_real) if (in_bonferroni_family and not np.isnan(p_bin)) else np.nan,
         })
 
         # ---- H1b: magnitude de continuacao (EXTENSAO, nao-Osler) ----
@@ -199,7 +202,7 @@ def run_confirmatory_test(round_events: pd.DataFrame, ctrl: dict) -> pd.DataFram
             "n_meses": nmo2, "sucessos_BPmaiorBA": s2, "p_binomial": p_bin2,
             "estatistica_obs": obs_mag, "nula_media": float(np.nanmean(null_mag_pooled)),
             "p_montecarlo": p_mc2,
-            "p_binom_bonferroni": min(1.0, p_bin2 * n_real) if (not is_placebo and not np.isnan(p_bin2)) else np.nan,
+            "p_binom_bonferroni": min(1.0, p_bin2 * n_real) if (in_bonferroni_family and not np.isnan(p_bin2)) else np.nan,
         })
 
     result = pd.DataFrame(rows)
